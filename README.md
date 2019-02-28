@@ -17,3 +17,4 @@ Data shown is aggregated by 5 mins intervals.
 AzureDB_Main
 This report should be invoked from a user database and shows lots of db-related information.
 Performance data is more granular but is hosted only for the last 1 hour.
+
