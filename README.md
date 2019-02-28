@@ -8,7 +8,7 @@ There are two main reports :
 1) Azure_Master
 2) AzureDB_Main
 
-Other reports depend of the main ones.
+Other reports depend on the main ones.
 
 Azure_Master
 This report should be invoked from master database and shows workload on all databases hosted on the server. 
