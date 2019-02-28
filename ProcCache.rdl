@@ -9,78 +9,48 @@
         <ConnectString>Encrypt=True;TrustServerCertificate=False</ConnectString>
       </ConnectionProperties>
       <rd:SecurityType>None</rd:SecurityType>
-      <rd:DataSourceID>df354ea8-5a31-4203-b815-7eb208237fd3</rd:DataSourceID>
+      <rd:DataSourceID>399bf0e7-4d59-42d3-861a-c714c2dd6ff0</rd:DataSourceID>
     </DataSource>
   </DataSources>
   <DataSets>
-    <DataSet Name="dsEvents">
+    <DataSet Name="dsPlansPerHour">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <QueryParameters>
-          <QueryParameter Name="@db">
-            <Value>=Parameters!DBName.Value</Value>
-            <rd:UserDefined>true</rd:UserDefined>
-          </QueryParameter>
-        </QueryParameters>
-        <CommandText>/*
-with dates as 
-(
-select convert(smalldatetime,convert(date,getdate())) [dt]
-	,'' [type]
-	,0 [count]
+        <CommandText>
+select 
+left(convert(varchar(20),dateadd(dd,datediff(dd,0,s.creation_time),0),106),6) [day]
+,left(convert(varchar(10),dateadd(hh,datediff(hh,0,s.creation_time),0),108),5) [dt]
+,p.objtype+':'+p.cacheobjtype [type]
+,count(distinct s.plan_handle) [plans]
+from sys.dm_exec_query_stats s
+join sys.dm_exec_cached_plans p on s.plan_handle=p.plan_handle
+group by 
+dateadd(hh,datediff(hh,0,s.creation_time),0)
+,dateadd(dd,datediff(dd,0,s.creation_time),0) 
+,p.objtype+':'+p.cacheobjtype
+order by 
+	dateadd(dd,datediff(dd,0,s.creation_time),0)
+,dateadd(hh,datediff(hh,0,s.creation_time),0)
 
-union all
-select dateadd(mi,5,[dt])
-	,'' [type]
-	,0 [count]
-from dates 
-where dt&lt;convert(date,dateadd(dd,1,getdate()))
-)
-,vals  as 
-(
-select 
-	convert(smalldatetime,start_time) [time]
-	,event_category+': '+event_type [type]
-	,event_count [count]
+option (recompile, maxdop 1)
 
-from sys.event_log
-where start_time&gt;=convert(date,getdate())
-and database_name=@db
-)
-select 
-	isnull(v.time,d.dt) [time]
-	,isnull(v.type,d.type) [type]
-	,isnull(v.count,d.count) [count]
-from vals v
-right outer join dates d on v.time=d.dt
-option (maxrecursion 0,recompile)
-*/
-select 
-	convert(smalldatetime,start_time) [time]
-	,event_category+': '+event_type [type]
-	,event_count [count]
-	,description
-from sys.event_log
-where 
-start_time&gt;=convert(date,getdate()) 
-and database_name=@db
-option (recompile)</CommandText>
+</CommandText>
       </Query>
       <Fields>
-        <Field Name="time">
-          <DataField>time</DataField>
+        <Field Name="day">
+          <DataField>day</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="dt">
+          <DataField>dt</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
         <Field Name="type">
           <DataField>type</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
-        <Field Name="count">
-          <DataField>count</DataField>
-          <rd:UserDefined>true</rd:UserDefined>
-        </Field>
-        <Field Name="description">
-          <DataField>description</DataField>
+        <Field Name="plans">
+          <DataField>plans</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -88,14 +58,8 @@ option (recompile)</CommandText>
     <DataSet Name="dsCurrent">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <QueryParameters>
-          <QueryParameter Name="@db">
-            <Value>=Parameters!DBName.Value</Value>
-            <rd:UserDefined>true</rd:UserDefined>
-          </QueryParameter>
-        </QueryParameters>
         <CommandText>select
-  quotename(@db)+' @ '+convert(varchar(50),@@servername) [info]
+  quotename(db_name())+' @ '+convert(varchar(50),@@servername) [info]
 ,getdate() [time]</CommandText>
       </Query>
       <Fields>
@@ -114,129 +78,36 @@ option (recompile)</CommandText>
     <ReportSection>
       <Body>
         <ReportItems>
-          <Textbox Name="Textbox1">
-            <CanGrow>true</CanGrow>
-            <KeepTogether>true</KeepTogether>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>Event Log</Value>
-                    <Style>
-                      <FontSize>12pt</FontSize>
-                      <FontWeight>Bold</FontWeight>
-                    </Style>
-                  </TextRun>
-                </TextRuns>
-                <Style>
-                  <TextAlign>Center</TextAlign>
-                </Style>
-              </Paragraph>
-            </Paragraphs>
-            <rd:DefaultName>Textbox1</rd:DefaultName>
-            <Top>0.53125in</Top>
-            <Left>0.55729in</Left>
-            <Height>0.27083in</Height>
-            <Width>3.1875in</Width>
-            <Style>
-              <Border>
-                <Style>None</Style>
-              </Border>
-              <BackgroundColor>Khaki</BackgroundColor>
-              <PaddingLeft>2pt</PaddingLeft>
-              <PaddingRight>2pt</PaddingRight>
-              <PaddingTop>2pt</PaddingTop>
-              <PaddingBottom>2pt</PaddingBottom>
-            </Style>
-          </Textbox>
-          <Textbox Name="Textbox2">
-            <CanGrow>true</CanGrow>
-            <KeepTogether>true</KeepTogether>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>=First(Fields!time.Value, "dsCurrent")</Value>
-                    <Style>
-                      <FontSize>12pt</FontSize>
-                      <FontWeight>Bold</FontWeight>
-                      <Format>dd MMM yyyy, dddd</Format>
-                    </Style>
-                  </TextRun>
-                </TextRuns>
-                <Style>
-                  <TextAlign>Center</TextAlign>
-                </Style>
-              </Paragraph>
-            </Paragraphs>
-            <rd:DefaultName>Textbox2</rd:DefaultName>
-            <Top>0.31667in</Top>
-            <Left>3.81424in</Left>
-            <Height>0.25in</Height>
-            <Width>3.01042in</Width>
-            <ZIndex>1</ZIndex>
-            <Style>
-              <Border>
-                <Style>None</Style>
-              </Border>
-              <BackgroundColor>Yellow</BackgroundColor>
-              <PaddingLeft>2pt</PaddingLeft>
-              <PaddingRight>2pt</PaddingRight>
-              <PaddingTop>2pt</PaddingTop>
-              <PaddingBottom>2pt</PaddingBottom>
-            </Style>
-          </Textbox>
-          <Textbox Name="Textbox5">
-            <CanGrow>true</CanGrow>
-            <KeepTogether>true</KeepTogether>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>=First(Fields!info.Value, "dsCurrent")</Value>
-                    <Style>
-                      <FontSize>12pt</FontSize>
-                      <FontWeight>Bold</FontWeight>
-                    </Style>
-                  </TextRun>
-                </TextRuns>
-                <Style>
-                  <TextAlign>Center</TextAlign>
-                </Style>
-              </Paragraph>
-            </Paragraphs>
-            <rd:DefaultName>Textbox1</rd:DefaultName>
-            <Top>0.12917in</Top>
-            <Left>0.55729in</Left>
-            <Height>0.30208in</Height>
-            <Width>3.1875in</Width>
-            <ZIndex>2</ZIndex>
-            <Style>
-              <Border>
-                <Style>None</Style>
-              </Border>
-              <BackgroundColor>Khaki</BackgroundColor>
-              <PaddingLeft>2pt</PaddingLeft>
-              <PaddingRight>2pt</PaddingRight>
-              <PaddingTop>2pt</PaddingTop>
-              <PaddingBottom>2pt</PaddingBottom>
-            </Style>
-          </Textbox>
           <Chart Name="Chart1">
             <ChartCategoryHierarchy>
               <ChartMembers>
                 <ChartMember>
-                  <Group Name="Chart1_CategoryGroup">
+                  <Group Name="Chart1_CategoryGroup2">
                     <GroupExpressions>
-                      <GroupExpression>=Fields!time.Value</GroupExpression>
+                      <GroupExpression>=Fields!day.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!time.Value</Value>
+                      <Value>=Fields!day.Value</Value>
                     </SortExpression>
                   </SortExpressions>
-                  <Label>=Fields!time.Value</Label>
+                  <ChartMembers>
+                    <ChartMember>
+                      <Group Name="Chart1_CategoryGroup1">
+                        <GroupExpressions>
+                          <GroupExpression>=Fields!dt.Value</GroupExpression>
+                        </GroupExpressions>
+                      </Group>
+                      <SortExpressions>
+                        <SortExpression>
+                          <Value>=Fields!dt.Value</Value>
+                        </SortExpression>
+                      </SortExpressions>
+                      <Label>=Fields!dt.Value</Label>
+                    </ChartMember>
+                  </ChartMembers>
+                  <Label>=Fields!day.Value</Label>
                 </ChartMember>
               </ChartMembers>
             </ChartCategoryHierarchy>
@@ -259,31 +130,21 @@ option (recompile)</CommandText>
             </ChartSeriesHierarchy>
             <ChartData>
               <ChartSeriesCollection>
-                <ChartSeries Name="count">
+                <ChartSeries Name="plans">
                   <ChartDataPoints>
                     <ChartDataPoint>
                       <ChartDataPointValues>
-                        <Y>=Sum(Fields!count.Value)</Y>
+                        <Y>=Sum(Fields!plans.Value)</Y>
                       </ChartDataPointValues>
                       <ChartDataLabel>
-                        <Style>
-                          <Color>=iif(InStr(Fields!type.Value,"failed")&gt;0,"Red","Black")</Color>
-                        </Style>
-                        <UseValueAsLabel>true</UseValueAsLabel>
-                        <Visible>true</Visible>
+                        <Style />
                       </ChartDataLabel>
-                      <ToolTip>="*** "+Fields!type.Value + " ***"
+                      <ToolTip>="*** "+Fields!type.Value+" ***"
 +chr(10)
-+"Time: "+format(Fields!time.Value,"HH:mm")
++"Date: "+Fields!day.Value+" "+Fields!dt.Value
 +chr(10)
-+"Value: "+cstr(Fields!count.Value)
-+chr(10)+chr(10)
-+"Description: "+Fields!description.Value</ToolTip>
-                      <Style>
-                        <Border>
-                          <Color>=iif(InStr(Fields!type.Value,"failed")&gt;0,"Red","Automatic")</Color>
-                        </Border>
-                      </Style>
++"Plans: "+cstr(Fields!plans.Value)</ToolTip>
+                      <Style />
                       <ChartMarker>
                         <Style />
                       </ChartMarker>
@@ -319,7 +180,6 @@ option (recompile)</CommandText>
                         <Style>None</Style>
                       </Border>
                       <FontSize>8pt</FontSize>
-                      <Format>HH:mm</Format>
                       <Color>#5c5c5c</Color>
                     </Style>
                     <ChartAxisTitle>
@@ -329,8 +189,7 @@ option (recompile)</CommandText>
                         <Color>#5c5c5c</Color>
                       </Style>
                     </ChartAxisTitle>
-                    <Interval>5</Interval>
-                    <IntervalType>Minutes</IntervalType>
+                    <Interval>1</Interval>
                     <ChartMajorGridLines>
                       <Enabled>False</Enabled>
                       <Style>
@@ -350,8 +209,8 @@ option (recompile)</CommandText>
                     <ChartMajorTickMarks>
                       <Style>
                         <Border>
-                          <Color>Gainsboro</Color>
-                          <Style>None</Style>
+                          <Color>Silver</Color>
+                          <Style>Dashed</Style>
                         </Border>
                       </Style>
                     </ChartMajorTickMarks>
@@ -364,11 +223,8 @@ option (recompile)</CommandText>
                       <Length>0.5</Length>
                     </ChartMinorTickMarks>
                     <CrossAt>NaN</CrossAt>
-                    <Scalar>true</Scalar>
                     <Minimum>NaN</Minimum>
                     <Maximum>NaN</Maximum>
-                    <Angle>-90</Angle>
-                    <IncludeZero>false</IncludeZero>
                     <ChartAxisScaleBreak>
                       <Style />
                     </ChartAxisScaleBreak>
@@ -432,7 +288,6 @@ option (recompile)</CommandText>
                 </ChartCategoryAxes>
                 <ChartValueAxes>
                   <ChartAxis Name="Primary">
-                    <Visible>False</Visible>
                     <Style>
                       <Border>
                         <Color>Gainsboro</Color>
@@ -569,17 +424,19 @@ option (recompile)</CommandText>
               </ChartLegend>
             </ChartLegends>
             <ChartTitles>
-              <ChartTitle Name="Title1">
-                <Caption>="Database Events on "+format(now(),"dddd, dd MMM yyyy")</Caption>
+              <ChartTitle Name="Default">
+                <Caption>Execution Plans Grouped by Creation Time</Caption>
                 <Style>
                   <BackgroundGradientType>None</BackgroundGradientType>
+                  <FontSize>12pt</FontSize>
                   <FontWeight>Bold</FontWeight>
-                  <TextAlign>General</TextAlign>
+                  <TextAlign>Left</TextAlign>
                   <VerticalAlign>Top</VerticalAlign>
                 </Style>
+                <Position>TopLeft</Position>
               </ChartTitle>
             </ChartTitles>
-            <Palette>PacificLight</Palette>
+            <Palette>BrightPastel</Palette>
             <ChartBorderSkin>
               <Style>
                 <BackgroundColor>Gray</BackgroundColor>
@@ -596,12 +453,10 @@ option (recompile)</CommandText>
                 <VerticalAlign>Top</VerticalAlign>
               </Style>
             </ChartNoDataMessage>
-            <DataSetName>dsEvents</DataSetName>
-            <Top>0.95708in</Top>
-            <Left>0.20312in</Left>
-            <Height>2.26042in</Height>
-            <Width>14.72271in</Width>
-            <ZIndex>3</ZIndex>
+            <DataSetName>dsPlansPerHour</DataSetName>
+            <Top>0.77583in</Top>
+            <Height>3.15625in</Height>
+            <Width>14.52083in</Width>
             <Style>
               <Border>
                 <Color>LightGrey</Color>
@@ -611,11 +466,84 @@ option (recompile)</CommandText>
               <BackgroundGradientType>None</BackgroundGradientType>
             </Style>
           </Chart>
+          <Textbox Name="Textbox5">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=First(Fields!info.Value, "dsCurrent")</Value>
+                    <Style>
+                      <FontSize>12pt</FontSize>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox1</rd:DefaultName>
+            <Top>0.11979in</Top>
+            <Left>0.125in</Left>
+            <Height>0.30208in</Height>
+            <Width>3.1875in</Width>
+            <ZIndex>1</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+              <BackgroundColor>Khaki</BackgroundColor>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="Textbox2">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=First(Fields!time.Value, "dsCurrent")</Value>
+                    <Style>
+                      <FontSize>12pt</FontSize>
+                      <FontWeight>Bold</FontWeight>
+                      <Format>dd MMM yyyy, dddd</Format>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox2</rd:DefaultName>
+            <Top>0.11979in</Top>
+            <Left>3.53646in</Left>
+            <Height>0.30208in</Height>
+            <Width>3.01042in</Width>
+            <ZIndex>2</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+              <BackgroundColor>Yellow</BackgroundColor>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
         </ReportItems>
-        <Height>5.71875in</Height>
+        <Height>4.97917in</Height>
         <Style />
       </Body>
-      <Width>15.11458in</Width>
+      <Width>14.52083in</Width>
       <Page>
         <LeftMargin>1in</LeftMargin>
         <RightMargin>1in</RightMargin>
@@ -625,37 +553,12 @@ option (recompile)</CommandText>
       </Page>
     </ReportSection>
   </ReportSections>
-  <ReportParameters>
-    <ReportParameter Name="DBName">
-      <DataType>String</DataType>
-      <Prompt>Database name</Prompt>
-      <Hidden>true</Hidden>
-    </ReportParameter>
-    <ReportParameter Name="Date">
-      <DataType>DateTime</DataType>
-      <Nullable>true</Nullable>
-      <Prompt>Date</Prompt>
-      <Hidden>true</Hidden>
-    </ReportParameter>
-  </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
       <NumberOfColumns>4</NumberOfColumns>
       <NumberOfRows>2</NumberOfRows>
-      <CellDefinitions>
-        <CellDefinition>
-          <ColumnIndex>0</ColumnIndex>
-          <RowIndex>0</RowIndex>
-          <ParameterName>DBName</ParameterName>
-        </CellDefinition>
-        <CellDefinition>
-          <ColumnIndex>1</ColumnIndex>
-          <RowIndex>0</RowIndex>
-          <ParameterName>Date</ParameterName>
-        </CellDefinition>
-      </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>
-  <rd:ReportID>025eef35-62d4-44e9-8a49-77c83ca0508f</rd:ReportID>
+  <rd:ReportID>e0a118ca-21ff-4988-b121-757000dceb9f</rd:ReportID>
 </Report>

@@ -414,7 +414,7 @@ WITH [Waits] AS
         [waiting_tasks_count] AS [WaitCount],
         100.0 * [wait_time_ms] / SUM ([wait_time_ms]) OVER() AS [Percentage],
         ROW_NUMBER() OVER(ORDER BY [wait_time_ms] DESC) AS [RowNum]
-    FROM sys.dm_os_wait_stats
+    FROM sys.dm_db_wait_stats
     WHERE [wait_type] NOT IN (
         -- These wait types are almost 100% never a problem and so they are
         -- filtered out to avoid them skewing the results. Click on the URL
@@ -506,6 +506,9 @@ WITH [Waits] AS
 		,N'VDI_CLIENT_OTHER'  -- https://www.sqlskills.com/help/waits/vdi_client_other/
 		,N'XE_LIVE_TARGET_TVF' -- https://www.sqlskills.com/help/waits/XE_LIVE_TARGET_TVF
 		,N'PWAIT_EXTENSIBILITY_CLEANUP_TASK' -- not known yet
+		,N'PREEMPTIVE_XE_DISPATCHER'  -- https://www.sqlskills.com/help/waits/preemptive_xe_dispatcher
+		,N'PREEMPTIVE_XHTTP' -- not known yet
+
         )
     AND [waiting_tasks_count] &gt; 0
     )
@@ -523,7 +526,7 @@ SELECT
 FROM [Waits] AS [W1]
 INNER JOIN [Waits] AS [W2] ON [W2].[RowNum] &lt;= [W1].[RowNum]
 GROUP BY [W1].[RowNum]
-HAVING SUM ([W2].[Percentage]) - MAX( [W1].[Percentage] ) &lt; 95 -- percentage threshold
+HAVING SUM ([W2].[Percentage]) - MAX( [W1].[Percentage] ) &lt; 99 -- percentage threshold
 option (recompile)</CommandText>
       </Query>
       <Fields>
@@ -767,6 +770,276 @@ option (recompile)</CommandText>
         </Field>
       </Fields>
     </DataSet>
+    <DataSet Name="dsTraceFlags">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>declare @tf table (tf varchar(10),[status] tinyint,[global] tinyint,[session] tinyint)
+--dbcc traceon(3604)
+insert into @tf (tf,[status],[global],[session])
+exec ('dbcc tracestatus()')
+
+;with dat as (
+	select '00000'[tf],'Source' [description],'http://www.sqlservice.se/updated-microsoft-sql-server-trace-flag-list/'  [link] union all 
+	select '101','Verbose Merge Replication logging output for troubleshooting Merger repl performance.','http://support.microsoft.com/kb/2892633' union all
+	select '102','Verbose Merge Replication logging to msmerge_history table for troubleshooting Merger repl performance.','http://support.microsoft.com/kb/2892633' union all
+	select '106','This enables you to see the messages that are sent to and from the Publisher, if you are using Web Synchronization.','http://technet.microsoft.com/en-us/library/ms151872(v=sql.105).aspx' union all
+	select '107','Alter input rules for decimal numbers.','http://support.microsoft.com/kb/203787' union all
+	select '168','Bugfix in ORDER BY.','http://support.microsoft.com/kb/926292' union all
+	select '205','Log usage of AutoStat/Auto Update Statistics.','http://support.microsoft.com/kb/195565' union all
+	select '253','Prevent adhoc query plans from staying in cache (SQL 2005).','' union all
+	select '260','Prints Extended stord proc DLL versioning info','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '272','Grenerates a log record per identity increment. Can be users to convert SQL 2012 back to old style Indetity behaviour.','https://connect.microsoft.com/SQLServer/feedback/details/739013/failover-or-restart-results-in-reseed-of-identity' union all
+	select '302','Output Index Selection info.','http://www.databasejournal.com/features/mssql/article.php/1443351/SQL-Server-65-Some-Useful-Trace-Flags.htm' union all
+	select '310','Outputs info about actual join order.','http://www.databasejournal.com/features/mssql/article.php/1443351/SQL-Server-65-Some-Useful-Trace-Flags.htm' union all
+	select '323','Outputs detailed info about updates.','http://www.databasejournal.com/features/mssql/article.php/1443351/SQL-Server-65-Some-Useful-Trace-Flags.htm' union all
+	select '345','Changes join order selection logic in SQL Server 6.5.','http://www.databasejournal.com/features/mssql/article.php/1443351/SQL-Server-65-Some-Useful-Trace-Flags.htm' union all
+	select '445','Prints "compile issued" message in the errorlog for each compiled statement, when used together with 3605.','' union all
+	select '610','Minimally logged inserts to indexed tables.','http://msdn.microsoft.com/en-us/library/dd425070%28v=SQL.100%29.aspx' union all
+	select '617','Revert to old style "lock wait list" behaviour in SQL 2012.','https://blogs.msdn.microsoft.com/saponsqlserver/2014/01/17/new-functionality-in-sql-server-2014-part-3-low-priority-wait/' union all
+	select '652','Disable page pre-fetching scans.','http://support.microsoft.com/kb/920093' union all
+	select '661','Disable the ghost record removal process.','http://support.microsoft.com/kb/920093' union all
+	select '662','Prints detailed information about the work done by the ghost cleanup task when it runs next. Use TF 3605 to see the output in the errorlog.','http://blogs.msdn.com/b/sqljourney/archive/2012/07/28/an-in-depth-look-at-ghost-records-in-sql-server.aspx' union all
+	select '806','Turn on Page Audit functionality, to verify page validity.','http://technet.microsoft.com/en-au/library/cc917726.aspx' union all
+	select '818','Turn on ringbuffer to store info about IO write operations. Used to troubleshoot IO problems.','http://support.microsoft.com/kb/826433' union all
+	select '830','Disable diagnostics for stalled and stuck I/O operations.','https://support.microsoft.com/en-us/help/897284/diagnostics-in-sql-server-help-detect-stalled-and-stuck-i-o-operations' union all
+	select '834','Use Microsoft Windows large-page allocations for the buffer pool.','http://support.microsoft.com/kb/920093' union all
+	select '836','Use the max server memory option for the buffer pool (32-bit SQLs only).','https://support.microsoft.com/en-us/help/920093/tuning-options-for-sql-server-when-running-in-high-performance-workloa' union all
+	select '845','Enable Lock pages in Memory on Standard Edition (version &lt; 2012).','' union all
+	select '902','Bypass Upgrade Scripts.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '1117','Simultaneous Autogrowth in Multiple-file database.','http://blogs.technet.com/technet_blog_images/b/sql_server_sizing_ha_and_performance_hints/archive/2012/02/09/sql-server-2008-trace-flag-t-1117.aspx' union all
+	select '1118','Force Uniform Extent Allocation.','http://blogs.msdn.com/b/psssql/archive/2008/12/17/sql-server-2005-and-2008-trace-flag-1118-t1118-usage.aspx' union all
+	select '1119','Turns of mixed extent allocation (Similar to 1118?)','http://social.technet.microsoft.com/wiki/contents/articles/13105.trace-flags-in-sql-server.aspx' union all
+	select '1140','Fix for growing tempdb in special cases.','http://support.microsoft.com/kb/2000471' union all
+	select '1200','Prints detailed lock information.','http://social.technet.microsoft.com/wiki/contents/articles/13105.trace-flags-in-sql-server.aspx' union all
+	select '1204','Returns info about deadlocks.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '1211','Disables Lock escalation caused by mem pressure.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '1222','Returns Deadlock info in XML format.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '1224','Disables lock escalation based on number of locks.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '1236','Fixes performance problem in scenarios with high lock activity in SQL 2012 and SQL 2014.','http://support.microsoft.com/kb/2926217' union all
+	select '1260','Disable scheduler monitor dumps.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '1264','Collect process names in non-yielding scenario memory dumps.','http://support.microsoft.com/kb/2630458/en-us' union all
+	select '1448','Alters replication logreader functionality.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '1449','Allow FailoverPartner connections to the former Mirror with Database Mirroring being off.','https://blogs.msdn.microsoft.com/saponsqlserver/2007/09/26/what-did-we-learn-using-database-mirroring-over-the-last-two-years-in-our-sap-erp-system-second-revision/' union all
+	select '1462','Disable Mirroring Log compression.','http://sqlcat.com/sqlcat/b/technicalnotes/archive/2007/09/17/database-mirroring-log-compression-in-sql-server-2008-improves-throughput.aspx' union all
+	select '1717','MSShipped bit will be set automatically at Create time when creating stored procedures.','' union all
+	select '1800','Performance fix for misaligned IO''s.','https://support.microsoft.com/en-us/kb/3009974' union all
+	select '1806','Disable Instant File Initialization.','https://msdn.microsoft.com/en-us/library/ms175935.aspx ' union all
+	select '1807','Enable option to have database files on SMB share for SQL Server 2008 and 2008R2.','http://blogs.msdn.com/b/varund/archive/2010/09/02/create-a-sql-server-database-on-a-network-shared-drive.aspx' union all
+	select '2301','Enable advanced decision support optimizations.','http://support.microsoft.com/kb/920093' union all
+	select '2312','Forces the query optimizer to use the SQL Server 2014 version of the cardinality estimator when creating the query plan when running SQL Server 2014 with database compatibility level 110.','http://support.microsoft.com/kb/2801413' union all
+	select '2335','Generates Query Plans optimized for less memory.','http://support.microsoft.com/kb/2413549' union all
+	select '2340','Disable specific SORT optimization in Query Plan.','http://support.microsoft.com/kb/2009160' union all
+	select '2371','Change threshold for auto update stats. Updates stats more often on tables with more than 25k records.','' union all
+	select '2372','Displays memory utilization during the optimization process.','' union all
+	select '2373','Displays memory utilization during the optimization process.','' union all
+	select '2388','Change DBCC SHOW_STATISTICS output to show stats history and lead key type such as known ascending keys.','' union all
+	select '2389','Enable auto-quick-statistics update for known ascending keys.','http://blogs.msdn.com/b/ianjo/archive/2006/04/24/582227.aspx' union all
+	select '2390','Enable auto-quick-statistics update for all columns.','http://blogs.msdn.com/b/ianjo/archive/2006/04/24/582227.aspx' union all
+	select '2422','When the flag REQUEST_MAX_CPU_TIME_SEC is set in Resource Govenor, this trace flag forces the request to be aborted if it exceeds the max cpu limit, and throws error 10961.','https://support.microsoft.com/en-us/help/4038419/add-cpu-timeout-to-resource-governor-request-max-cpu-time-sec' union all
+	select '2430','Fixes performance problem when using large numbers of locks.','http://support.microsoft.com/kb/2754301/en-us' union all
+	select '2453','Allow a table variable to trigger recompile when enough number of rows are changed with may allow the query optimizer to choose a more efficient plan.','http://http://support.microsoft.com/kb/2952444' union all
+	select '2469','Enables alternate exchange for INSERT INTO ... SELECT into a partitioned columnstore index.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '2470','Fixes performance problem when using AFTER triggers on partitioned tables.','http://support.microsoft.com/kb/2606883/en-us' union all
+	select '2505','Suppress DBCC TRACEON/OFF messages in the Error Log.','https://support.microsoft.com/en-gb/kb/243352' union all
+	select '2514','Verbose Merge Replication logging to msmerge_history table for troubleshooting Merger repl performance.','http://sqlblog.com/blogs/argenis_fernandez/archive/2012/05/29/ghost-records-backups-and-database-compression-with-a-pinch-of-security-considerations.aspx' union all
+	select '2528','Disables parallellism in CHECKDB etc.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '2529','Displays memory usage for DBCC commands when used with TF 3604.','' union all
+	select '2537','Allows you to see inactive records in transactionlog using fn_dblog.','http://www.sqlsoldier.com/wp/sqlserver/day19of31daysofdisasterrecoveryhowmuchlogcanabackuplog' union all
+	select '2540','Unknown, but related to controlling the contents of a memorydump.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2541','Unknown, but related to controlling the contents of a memorydump.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2542','Unknown, but related to controlling the contents of a memorydump.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2543','Unknown, but related to controlling the contents of a memorydump.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2544', 'Produces a full memory dump in case of exception.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2545', 'Unknown, but related to controlling the contents of a memorydump.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2546', 'Dumps all threads for SQL Server in the dump file.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2547','Unknown, but related to controlling the contents of a memorydump','http://support.microsoft.com/kb/917825/en-us' union all
+	select '2548','Shrink will run faster with this trace flag if there are LOB pages that need conversion and/or compaction, because that actions will be skipped.','http://blogs.msdn.com/b/psssql/archive/2008/03/28/how-it-works-sql-server-2005-dbcc-shrink-may-take-longer-than-sql-server-2000.aspx' union all
+	select '2549','Runs the DBCC CHECKDB command assuming each database file is on a unique disk drive.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+
+	select '2551','Produces a filtered memory dump.','https://support.microsoft.com/en-us/help/917825/use-the-sqldumper-exe-utility-to-generate-a-dump-file-in-sql-server' union all 
+
+	select '2562','Runs the DBCC CHECKDB command in a single "batch" regardless of the number of indexes in the database.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '2588','Get more information about undocumented DBCC commands.','' union all
+	select '2861','Keep zero cost plans in cache.','http://support.microsoft.com/kb/325607' union all
+	select '3004','Returns more info about Instant File Initialization.','https://blogs.sentryone.com/aaronbertrand/t-sql-tuesday-66-babysitting-a-slow-backup-or-restore/' union all
+	select '3014','Returns more info about backups to the errorlog.','https://blogs.sentryone.com/aaronbertrand/t-sql-tuesday-66-babysitting-a-slow-backup-or-restore/' union all
+	select '3023','Enable the CHECKSUM option if backup utilities do not expose the option.','https://support.microsoft.com/en-us/kb/2656988' union all
+	select '3042','Bypasses the default backup compression pre-allocation algorithm to allow the backup file to grow only as needed to reach its final size.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '3101','Fix performance problems when restoring database with CDC.','http://support.microsoft.com/kb/2567366/en-us' union all
+	select '3205','Disable HW compression for backup to tape drives.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '3213','Output buffer info for backups to ERRORLOG.','' union all
+	select '3226','Suppresses successful backup operation records in errorlog.',''  	union all
+	select '3422','Enables log record auditing.','https://technet.microsoft.com/en-au/library/cc917726.aspx' union all
+
+	select '3427','Helps to fix high workload on tempdb (valid for SQL2016SP1CU2-SP2CU2 &amp; up to SQL2017CU4)','https://blogs.msdn.microsoft.com/sql_server_team/tempdb-files-and-trace-flags-and-updates-oh-my/' union all
+
+	select '3502','Writes information about CHECKPOINTs to the ERRORLOG.','' union all
+	select '3504','Writes info about long checkpoints to the errorlog. Long checkpoints are when the chekpoint exceeds the configured recovery interval.','https://blogs.msdn.microsoft.com/psssql/2012/06/01/how-it-works-when-is-the-flushcache-message-added-to-sql-server-error-log/' union all
+	select '3505','Disables automatic checkpoints.','' union all
+	select '3604','Sends output to console.','' union all
+	select '3605','Sends output to errorlog.','' union all
+	select '3607','Skip recovery on startup.','' union all
+	select '3608','Recover only Master db at startup.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '3609','Do not create tempdb at startup.','' union all
+	select '3625','Limits the amount of information returned to users who are not members of the sysadmin fixed server role, by masking the parameters of some error messages using "******". This can help prevent disclosure of sensitive information.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '3656','Enables resolve of all callstacks in extended events.','' union all
+	select '3659','Enables logging all errors to errorlog during server startup.','' union all
+	select '3688','Removes messages to errorlog about traces started and stopped.','http://support.microsoft.com/kb/922578/en-us' union all
+	select '3801','Prohibits use of USE DB statement.','' union all
+	select '3923','Let SQL Server throw an exception to the application when the 3303 warning message is raised.','https://support.microsoft.com/kb/3014867/en-us' union all
+
+	select '4010','Allows only shared memory connections to the SQL Server. Meaning, you will only be able to connect from the server machine itself. Client connections over TCP/IP or named pipes will not happen.','https://blogs.msdn.microsoft.com/sqlserverfaq/2011/05/11/inf-hey-my-sql-server-service-is-not-starting-what-do-i-do' union all
+
+	select '4013','Log each new connection the errorlog.','http://sqlkbs.blogspot.com/2008/01/trace-flag.html' union all
+
+
+
+	select '4022','Bypass Startup procedures.','' union all
+	select '4130','XML performance fix.','http://support.microsoft.com/kb/957205' union all
+	select '4134','Bugfix for error: parallell query returning different results every time.','http://support.microsoft.com/kb/2546901' union all
+	select '4135','Bugfix for error inserting to temp table.','http://support.microsoft.com/kb/960770' union all
+	select '4136','Parameter Sniffing behaviour alteration.','http://blogs.msdn.com/b/axinthefield/archive/2010/11/04/sql-server-trace-flags-for-dynamics-ax.aspx' union all
+	select '4137','Fix for bad performance in queries with several AND criteria.','http://support.microsoft.com/kb/2658214' union all
+	select '4138','Fixes performance probles with certain queries that use TOP statement.','http://support.microsoft.com/kb/2667211' union all
+	select '4139','Fix for poor cardinality estimation when the ascending key column is branded as stationary.','https://support.microsoft.com/en-us/kb/2952101' union all
+	select '4199','Turn on all optimizations.','' union all
+	select '4606','Ignore domain policy about weak password.','' union all
+	select '4616','Alters server-level metadata visibility.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '6498','Increased query compilation scalability in SQL Server 2014.','http://blogs.msdn.com/b/sql_server_team/archive/2015/10/09/query-compile-big-gateway-policy-changes-in-sql-server.aspx' union all
+	select '6527','Alters mem dump functionality.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '6534','This fix updates the sorting algorithm to include angular vectorization techniques that significantly improve the LineString performance.','https://support.microsoft.com/en-us/kb/3054180' union all
+	select '6545','This traceflag enables CLR strict security, it can only be activated as a startup parameter.','https://support.microsoft.com/en-us/help/4018930/update-adds-the-clr-strict-security-feature-to-sql-server-2016' union all
+	select '7300','Outputs extra info about linked server errors.','http://support.microsoft.com/kb/314530' union all
+	select '7412','Enables the lightweight query execution statistics profiling infrastructure.','https://support.microsoft.com/en-us/help/3170113/update-to-expose-per-operator-query-execution-statistics-in-showplan-x' union all
+	select '7470','Fix for sort operator spills to tempdb in SQL Server 2012 or SQL Server 2014 when estimated number of rows and row size are correct.','https://support.microsoft.com/en-us/kb/3088480' union all
+	select '7502','Disable cursor plan caching for extended stored procedures.','' union all
+	select '7745','Disable writing of in-memory Query Store data to disk during SQL Server shutdown.','https://blogs.msdn.microsoft.com/vikas_rana/2017/10/20/query-store-best-practices-for-mission-critical-or-busy-sql-server/' union all
+	select '7752','Load Query Store data anyncronously at SQL Server startup.','https://blogs.msdn.microsoft.com/vikas_rana/2017/10/20/query-store-best-practices-for-mission-critical-or-busy-sql-server/' union all
+	select '7806','Enables DAC on SQL Server Express.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '7826','Disable Connectivity ringbuffer.','http://blogs.msdn.com/b/sql_protocols/archive/2008/05/20/connectivity-troubleshooting-in-sql-server-2008-with-the-connectivity-ring-buffer.aspx' union all
+	select '7827','Record connection closure info in ring buffer.','http://blogs.msdn.com/b/sql_protocols/archive/2008/05/20/connectivity-troubleshooting-in-sql-server-2008-with-the-connectivity-ring-buffer.aspx' union all
+	select '8002','Changes CPU Affinity behaviour.','http://support.microsoft.com/kb/818769' union all
+	select '8010','Fixes problem that SQL Server services can not be stopped.','http://support.microsoft.com/kb/2633271/en-us' union all
+	select '8011','Disable the ring buffer for Resource Monitor.','http://support.microsoft.com/kb/920093' union all
+	select '8012','Disable the ring buffer for schedulers.','http://support.microsoft.com/kb/920093' union all
+	select '8015','Ignore NUMA functionality (use with TF8048).','' union all
+	select '8017','Controls whether SQL Server creates schedulers for all logical processors, including those that are not available for SQL Server to use (according to the affinity mask).','' union all
+	select '8018','Disable the exception ring buffer.','http://support.microsoft.com/kb/920093' union all
+	select '8019','Disable stack collection for the exception ring buffer.','http://support.microsoft.com/kb/920093' union all
+	select '8020','Disable working set monitoring.','http://support.microsoft.com/kb/920093' union all
+	select '8026','SQL Server will clear a dumptrigger after generating the dump once.','http://support.microsoft.com/kb/917825/en-us' union all
+	select '8030','Fix for performance bug.','http://support.microsoft.com/kb/917035' union all
+	select '8032','Reverts the cache limit parameters to the SQL Server 2005 (9.x) RTM setting which in general allows caches to be larger.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '8038','Drastically reduces the number of context switches when running SQL 2005 or 2008.','' union all
+	select '8040','Disables Resource Govenor.','' union all
+	select '8048','NUMA CPU based partitioning.','http://blogs.msdn.com/b/psssql/archive/2011/09/01/sql-server-2008-2008-r2-on-newer-machines-with-more-than-8-cpus-presented-per-numa-node-may-need-trace-flag-8048.aspx' union all
+	select '8075','Reduces VAS fragmentation when you receive memory page allocation errors on a 64-bit SQL Server 2012 (11.x) or SQL Server 2014 (12.x). ','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all 
+	select '8079','Allows SQL Server 2014 (12.x) SP2 to interrogate the hardware layout and automatically configure Soft-NUMA on systems reporting 8 or more CPUs per NUMA node.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all 
+	
+
+	select '8207','Alters Transactional Replication behaviour of UPDATE statement.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '8209','Output extra infomation to errorlog regarding replication of schema changes in SQL Server Replication.','http://support.microsoft.com/kb/916706/en-us' union all
+	select '8218','Bypass proc generation referenced in the system procedure [sys].[sp_cdc_vupgrade]','' union all
+	select '8295','Creates a secondary index on the identifying columns on the change tracking side table at enable time.','https://social.msdn.microsoft.com/forums/sqlserver/en-US/00250311-7991-47b0-b788-7fae2e102254/trace-flag-8295' union all
+	select '8602','Disable Index Query Hints.','' union all
+	select '8605','Displays logical and physical trees used during the optimization process.','' union all
+	select '8607','Displays the optimization output tree during the optimization process.','' union all
+	select '8649','Set Cost Threshold for parallelism to 0.','' union all
+	select '8675','Displays the query optimization phases for a specific optimization.','' union all
+	select '8721','Reports to the error log when auto-update statistics executes','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all 
+	select '8722','Disable all hints exept locking hints.','' union all
+	select '8744','Disable pre-fetching for ranges.','http://support.microsoft.com/kb/920093' union all
+	select '8755','Disable all locking hints.','' union all
+	select '8757','Skip trivial plan optimization and force a full optimization.','' union all
+	select '8780','Give the optimizer more time to find a better plan.','' union all
+	select '9024','Performance fix for AlwaysON log replication.','http://support.microsoft.com/kb/2809338/en-us' union all
+	select '9185','Cardinality estimates for literals that are outside the histogram range are very low.','https://support.microsoft.com/en-us/kb/kbview/833406' union all
+	
+	select '9204','Output Statistics used by Query Optimizer.','http://sqlblog.com/blogs/paul_white/archive/2011/09/21/how-to-find-the-statistics-used-to-compile-an-execution-plan.aspx' union all
+	select '9205','Cardinality estimates for literals that are outside the histogram range are very low for tables that have parent-child relationships.','https://support.microsoft.com/en-us/kb/kbview/833406' union all
+	select '9207','ixes that SQL Server underestimates the cardinality of a query expression and query performance may be slow.','https://support.microsoft.com/en-us/kb/831302' union all
+	select '9292','Output Statistics considered to be used by Query Optimizer.','http://sqlblog.com/blogs/paul_white/archive/2011/09/21/how-to-find-the-statistics-used-to-compile-an-execution-plan.aspx' union all
+	select '9347','Disables batch mode sort operator for Clustered Columnstore Index.','https://support.microsoft.com/en-us/kb/3172787' union all
+	select '9349','Disables batch mode top sort operator. SQL Server 2016 Release Candidate (RC0) introduces a new batch mode top sort operator that boosts performance for many analytical queries.','https://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+
+	select '9358','Disable Batch Execution Mode for Sort Iterators.','http://www.nikoport.com/2016/07/29/columnstore-indexes-part-86-new-trace-flags-in-sql-server-2016/' union all 
+
+
+	select '9389','Enables dynamic memory grant for batch mode operators. If a query does not get all the memory it needs, it spills data to tempdb, incurring additional I/O and potentially impacting query performance. If the dynamic memory grant trace flag is enabled, a batch mode operator may ask for additional memory and avoid spilling to tempdb if additional memory is available.','https://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
+	select '9481','Forces the query optimizer to use the SQL Server 2012 version of the cardinality estimator when creating the query plan when running SQL Server 2014 with the default database compatibility level 120','http://support.microsoft.com/kb/2801413' union all
+
+	select '9485','Disables SELECT permission for DBCC SHOW_STATISTICS.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all 
+	select '9488','Sets the fixed estimation for Table Valued Functions to the default of 1 (corresponding to the default under the query optimizer cardinality estimation model of SQL Server 2008 R2 and earlier versions), when using the query optimizer cardinality estimation model of SQL Server 2012 (11.x) through SQL Server 2017 versions.','' union all
+	select '9495','Disables parallelism during insertion for INSERT...SELECT operations and it applies to both user and temporary tables.','' union all
+	select '9567','Enable on the AlwaysOn primary replica to enable compression of the data stream that gets send from the primary to the secondary during Direct Seeding.','https://blogs.msdn.microsoft.com/alwaysonpro/2016/05/02/sql-server-2016-alwayson-availability-group-enhancements-initial-data-synchronization-without-database-and-log-backup/' union all 
+	select '9591','Disables log block compression in Always On Availability Groups.','' union all
+	select '9592','Enables log stream compression for synchronous availability groups.','' union all
+
+
+	select '9806','Unknown. Is turned on on SQL Server 2014 CTP1 standard installation in Windows Azure VM.','' union all 
+	select '9807','Unknown. Is turned on on SQL Server 2014 CTP1 standard installation in Windows Azure VM.','' union all 
+	select '9808','Unknown. Is turned on on SQL Server 2014 CTP1 standard installation in Windows Azure VM.','' union all 
+
+	select '9939','Enables parallel plans and parallel scan of memory-optimized tables and table variables in DML operations that reference memory-optimized tables or table variables, as long as they are not the target of the DML operation in SQL Server 2016 (13.x).','' union all
+
+
+	select '10204','Disables merge/recompress during columnstore index reorganization.','https://msdn.microsoft.com/en-us/library/ms188396.aspx' union all 
+	select '10210','Enables the option to configure compression delay in columnstore indexes in SQL Server 2016.','https://blogs.msdn.microsoft.com/sqlserverstorageengine/2016/03/06/real-time-operational-analytics-compression-delay-option-for-nonclustered-columnstore-index-ncci/' union all 
+	select '10316','Enables creation of additional indexes on internal memory-optimized staging temporal table, beside the default one. ','' union all
+
+	select '11023','Disables the use of the last persisted sample rate for all subsequent statistics update, where a sample rate is not specified explicitly as part of the UPDATE STATISTICS statement.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
+	select '11024','Fixes behavior in Auto Update of Incremental Statistics.','https://support.microsoft.com/en-us/help/4041811/automatic-update-of-incremental-statistics-is-delayed-in-sql-server' 
+	)
+select t.tf
+	,isnull(d.[description],'(unknown)') [description]
+	,t.[status]
+	,t.[global]
+	,t.[session]
+	,d.link
+from @tf t
+left join dat d on t.tf=d.tf 
+where t.tf&lt;&gt;'3604'
+option (recompile)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="tf">
+          <DataField>tf</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="description">
+          <DataField>description</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="status">
+          <DataField>status</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="global">
+          <DataField>global</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="session">
+          <DataField>session</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="link">
+          <DataField>link</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsVersion">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>select @@version [version]</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="version">
+          <DataField>version</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
   </DataSets>
   <ReportSections>
     <ReportSection>
@@ -1005,7 +1278,7 @@ option (recompile)</CommandText>
             </TablixRowHierarchy>
             <DataSetName>dsDBInfo</DataSetName>
             <Top>6.33333in</Top>
-            <Left>0.2939in</Left>
+            <Left>0.0689in</Left>
             <Height>0.44792in</Height>
             <Width>2.58333in</Width>
             <Style>
@@ -1325,214 +1598,6 @@ option (recompile)</CommandText>
                   <PaddingBottom>2pt</PaddingBottom>
                 </Style>
               </Textbox>
-              <Textbox Name="Textbox4">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Servername: </Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Right</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox4</rd:DefaultName>
-                <Top>0.02777in</Top>
-                <Left>0.01042in</Left>
-                <Height>0.25in</Height>
-                <Width>1.09375in</Width>
-                <ZIndex>7</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox5">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>=ucase(First(Fields!server.Value, "dsServerInfo"))</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox5</rd:DefaultName>
-                <Top>0.02777in</Top>
-                <Left>1.17361in</Left>
-                <Height>0.25in</Height>
-                <Width>2.33333in</Width>
-                <ZIndex>8</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <BackgroundColor>Khaki</BackgroundColor>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox7">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>=First(Fields!db.Value, "dsServerInfo")</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox5</rd:DefaultName>
-                <Top>0.34721in</Top>
-                <Left>1.17361in</Left>
-                <Height>0.25in</Height>
-                <Width>2.33333in</Width>
-                <ZIndex>9</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <BackgroundColor>Khaki</BackgroundColor>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox8">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Service: </Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Right</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox4</rd:DefaultName>
-                <Top>0.65416in</Top>
-                <Left>0.01042in</Left>
-                <Height>0.25in</Height>
-                <Width>1.09375in</Width>
-                <ZIndex>10</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox9">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>=First(Fields!edition.Value, "dsServerInfo")
-+" ("+First(Fields!service.Value, "dsServerInfo")
-+", "
-+cstr(First(Fields!dtu.Value, "dsServerInfo"))+"DTU)"</Value>
-                        <Style />
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox5</rd:DefaultName>
-                <Top>0.65416in</Top>
-                <Left>1.17361in</Left>
-                <Height>0.25in</Height>
-                <Width>2.33333in</Width>
-                <ZIndex>11</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <BackgroundColor>WhiteSmoke</BackgroundColor>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox6">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Database: </Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Right</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox4</rd:DefaultName>
-                <Top>0.33472in</Top>
-                <Left>0.01042in</Left>
-                <Height>0.25in</Height>
-                <Width>1.09375in</Width>
-                <ZIndex>12</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
               <Textbox Name="Textbox20">
                 <CanGrow>true</CanGrow>
                 <KeepTogether>true</KeepTogether>
@@ -1557,7 +1622,7 @@ option (recompile)</CommandText>
                 <Left>6.77151in</Left>
                 <Height>0.58333in</Height>
                 <Width>1.08334in</Width>
-                <ZIndex>13</ZIndex>
+                <ZIndex>7</ZIndex>
                 <ToolTip>Buffer Cache</ToolTip>
                 <Style>
                   <Border>
@@ -1593,7 +1658,7 @@ option (recompile)</CommandText>
                 <Left>6.77151in</Left>
                 <Height>0.25in</Height>
                 <Width>1.08334in</Width>
-                <ZIndex>14</ZIndex>
+                <ZIndex>8</ZIndex>
                 <Style>
                   <Border>
                     <Style>Solid</Style>
@@ -1628,6 +1693,8 @@ option (recompile)</CommandText>
                         <Style>
                           <FontSize>18pt</FontSize>
                           <Format>#,0.0;(#,0.0)</Format>
+                          <TextDecoration>Underline</TextDecoration>
+                          <Color>Blue</Color>
                         </Style>
                       </TextRun>
                     </TextRuns>
@@ -1637,11 +1704,20 @@ option (recompile)</CommandText>
                   </Paragraph>
                 </Paragraphs>
                 <rd:DefaultName>Textbox1</rd:DefaultName>
+                <ActionInfo>
+                  <Actions>
+                    <Action>
+                      <Drillthrough>
+                        <ReportName>ProcCache</ReportName>
+                      </Drillthrough>
+                    </Action>
+                  </Actions>
+                </ActionInfo>
                 <Top>0.34721in</Top>
                 <Left>7.98141in</Left>
                 <Height>0.58333in</Height>
                 <Width>1.42709in</Width>
-                <ZIndex>15</ZIndex>
+                <ZIndex>9</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -1676,7 +1752,7 @@ option (recompile)</CommandText>
                 <Left>7.98141in</Left>
                 <Height>0.25in</Height>
                 <Width>1.42709in</Width>
-                <ZIndex>16</ZIndex>
+                <ZIndex>10</ZIndex>
                 <Style>
                   <Border>
                     <Style>Solid</Style>
@@ -1684,10 +1760,6 @@ option (recompile)</CommandText>
                   <TopBorder>
                     <Style>None</Style>
                   </TopBorder>
-                  <BottomBorder>
-                    <Color>Black</Color>
-                    <Width>1pt</Width>
-                  </BottomBorder>
                   <LeftBorder>
                     <Style>None</Style>
                   </LeftBorder>
@@ -1723,7 +1795,7 @@ option (recompile)</CommandText>
                 <Left>0.01042in</Left>
                 <Height>0.25in</Height>
                 <Width>1.09375in</Width>
-                <ZIndex>17</ZIndex>
+                <ZIndex>11</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -2021,7 +2093,7 @@ option (recompile)</CommandText>
                 <Left>5.59318in</Left>
                 <Height>0.33333in</Height>
                 <Width>2.26167in</Width>
-                <ZIndex>18</ZIndex>
+                <ZIndex>12</ZIndex>
                 <Visibility>
                   <Hidden>true</Hidden>
                   <ToggleItem>txtBuffer</ToggleItem>
@@ -2446,7 +2518,7 @@ option (recompile)</CommandText>
                 <Left>7.98141in</Left>
                 <Height>0.33333in</Height>
                 <Width>3.76584in</Width>
-                <ZIndex>19</ZIndex>
+                <ZIndex>13</ZIndex>
                 <Visibility>
                   <Hidden>true</Hidden>
                   <ToggleItem>txtProcCache</ToggleItem>
@@ -3223,95 +3295,13 @@ option (recompile)</CommandText>
                 <Left>1.17361in</Left>
                 <Height>0.35416in</Height>
                 <Width>8in</Width>
-                <ZIndex>20</ZIndex>
+                <ZIndex>14</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
                   </Border>
                 </Style>
               </Tablix>
-              <Textbox Name="Textbox14">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Server Date: </Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Right</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox4</rd:DefaultName>
-                <Top>0.9736in</Top>
-                <Left>0.01042in</Left>
-                <Height>0.25in</Height>
-                <Width>1.09375in</Width>
-                <ZIndex>21</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox15">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>=First(Fields!time.Value, "dsServerInfo")</Value>
-                        <Style>
-                          <Format>dd MMM yyyy HH:mm, dddd</Format>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox5</rd:DefaultName>
-                <Top>0.9736in</Top>
-                <Left>1.17361in</Left>
-                <Height>0.25in</Height>
-                <Width>2.33333in</Width>
-                <ZIndex>22</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <BackgroundColor>WhiteSmoke</BackgroundColor>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Rectangle Name="Rectangle2">
-                <KeepTogether>true</KeepTogether>
-                <Top>1.30556in</Top>
-                <Left>0.6736in</Left>
-                <Height>0.04305in</Height>
-                <Width>2in</Width>
-                <ZIndex>23</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                </Style>
-              </Rectangle>
               <Tablix Name="Tablix6">
                 <TablixCorner>
                   <TablixCornerRows>
@@ -3401,7 +3391,7 @@ option (recompile)</CommandText>
                 <TablixBody>
                   <TablixColumns>
                     <TablixColumn>
-                      <Width>2.79104cm</Width>
+                      <Width>2.82279cm</Width>
                     </TablixColumn>
                   </TablixColumns>
                   <TablixRows>
@@ -3575,7 +3565,7 @@ option (recompile)</CommandText>
                         </GroupExpressions>
                       </Group>
                       <TablixHeader>
-                        <Size>2.87042cm</Size>
+                        <Size>2.90217cm</Size>
                         <CellContents>
                           <Textbox Name="Textbox11">
                             <CanGrow>true</CanGrow>
@@ -3626,10 +3616,10 @@ option (recompile)</CommandText>
                 </TablixRowHierarchy>
                 <DataSetName>dsUsers</DataSetName>
                 <Top>3.36851cm</Top>
-                <Left>27.58321cm</Left>
+                <Left>27.45621cm</Left>
                 <Height>1.83526cm</Height>
-                <Width>5.66146cm</Width>
-                <ZIndex>24</ZIndex>
+                <Width>5.72496cm</Width>
+                <ZIndex>15</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -3657,10 +3647,10 @@ option (recompile)</CommandText>
                 </Paragraphs>
                 <rd:DefaultName>Textbox1</rd:DefaultName>
                 <Top>0.55554in</Top>
-                <Left>10.85953in</Left>
+                <Left>10.80953in</Left>
                 <Height>0.375in</Height>
                 <Width>1.14584in</Width>
-                <ZIndex>25</ZIndex>
+                <ZIndex>16</ZIndex>
                 <ToolTip>=iif(First(Fields!num.Value, "dsDBConfig")&gt;0
 	,First(Fields!changed.Value, "dsDBConfig")
 	,First(Fields!default.Value, "dsDBConfig")
@@ -3713,10 +3703,10 @@ option (recompile)</CommandText>
                 </Paragraphs>
                 <rd:DefaultName>Textbox2</rd:DefaultName>
                 <Top>0.04165in</Top>
-                <Left>10.85953in</Left>
+                <Left>10.80953in</Left>
                 <Height>0.44445in</Height>
                 <Width>1.14584in</Width>
-                <ZIndex>26</ZIndex>
+                <ZIndex>17</ZIndex>
                 <Style>
                   <Border>
                     <Style>Solid</Style>
@@ -3740,12 +3730,846 @@ option (recompile)</CommandText>
                   <PaddingBottom>2pt</PaddingBottom>
                 </Style>
               </Textbox>
+              <Textbox Name="Textbox36">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=CountRows("dsTraceFlags")</Value>
+                        <Style>
+                          <FontSize>14pt</FontSize>
+                          <Format>0;(0)</Format>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox1</rd:DefaultName>
+                <Top>0.34721in</Top>
+                <Left>12.10328in</Left>
+                <Height>0.58333in</Height>
+                <Width>0.96017in</Width>
+                <ZIndex>18</ZIndex>
+                <ToolTip>Active trace flags</ToolTip>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <BackgroundColor>WhiteSmoke</BackgroundColor>
+                  <VerticalAlign>Middle</VerticalAlign>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
+              <Textbox Name="txtTraceFlags">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>Trace Flags</Value>
+                        <Style>
+                          <FontWeight>Bold</FontWeight>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                </Paragraphs>
+                <Top>0.04165in</Top>
+                <Left>12.10328in</Left>
+                <Height>0.25in</Height>
+                <Width>0.96017in</Width>
+                <ZIndex>19</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>Solid</Style>
+                  </Border>
+                  <TopBorder>
+                    <Style>None</Style>
+                  </TopBorder>
+                  <BottomBorder>
+                    <Color>Black</Color>
+                    <Width>1pt</Width>
+                  </BottomBorder>
+                  <LeftBorder>
+                    <Style>None</Style>
+                  </LeftBorder>
+                  <RightBorder>
+                    <Style>None</Style>
+                  </RightBorder>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
+              <Tablix Name="Tablix9">
+                <TablixBody>
+                  <TablixColumns>
+                    <TablixColumn>
+                      <Width>0.7521cm</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>1.22533cm</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>1.67979cm</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>2.5cm</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>1.36229cm</Width>
+                    </TablixColumn>
+                  </TablixColumns>
+                  <TablixRows>
+                    <TablixRow>
+                      <Height>0.3739cm</Height>
+                      <TablixCells>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox63">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>N</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox63</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox66">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Flag</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox66</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox70">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Status</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox70</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox78">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Description</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox78</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox74">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Link</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style />
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox74</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                      </TablixCells>
+                    </TablixRow>
+                    <TablixRow>
+                      <Height>0.31753cm</Height>
+                      <TablixCells>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox64">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=rownumber(nothing)</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox64</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="tf">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Fields!tf.Value</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>tf</rd:DefaultName>
+                              <ToolTip>=Fields!description.Value</ToolTip>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="status">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=iif(Fields!status.Value=0,"off","on")</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>status</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="description">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=left(Fields!description.Value,10)+iif(Fields!description.Value="(unknown)","","...")</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Left</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>description</rd:DefaultName>
+                              <ToolTip>=Fields!description.Value</ToolTip>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="link">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=left(Fields!link.Value,10)+iif(Fields!link.Value&lt;&gt;"","...","")</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <TextDecoration>Underline</TextDecoration>
+                                        <Color>Blue</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style />
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>link</rd:DefaultName>
+                              <ActionInfo>
+                                <Actions>
+                                  <Action>
+                                    <Hyperlink>=Fields!link.Value</Hyperlink>
+                                  </Action>
+                                </Actions>
+                              </ActionInfo>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                      </TablixCells>
+                    </TablixRow>
+                  </TablixRows>
+                </TablixBody>
+                <TablixColumnHierarchy>
+                  <TablixMembers>
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember>
+                      <Visibility>
+                        <Hidden>true</Hidden>
+                      </Visibility>
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixColumnHierarchy>
+                <TablixRowHierarchy>
+                  <TablixMembers>
+                    <TablixMember>
+                      <KeepWithGroup>After</KeepWithGroup>
+                    </TablixMember>
+                    <TablixMember>
+                      <Group Name="Details5" />
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixRowHierarchy>
+                <DataSetName>dsTraceFlags</DataSetName>
+                <Top>2.52235cm</Top>
+                <Left>30.74234cm</Left>
+                <Height>0.69143cm</Height>
+                <Width>7.51951cm</Width>
+                <ZIndex>20</ZIndex>
+                <Visibility>
+                  <Hidden>true</Hidden>
+                  <ToggleItem>txtTraceFlags</ToggleItem>
+                </Visibility>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Tablix>
+              <Rectangle Name="Rectangle5">
+                <ReportItems>
+                  <Textbox Name="Textbox4">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Servername: </Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Right</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox4</rd:DefaultName>
+                    <Left>0.01043in</Left>
+                    <Height>0.25in</Height>
+                    <Width>1.09375in</Width>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox5">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=ucase(First(Fields!server.Value, "dsServerInfo"))</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox5</rd:DefaultName>
+                    <Left>1.17362in</Left>
+                    <Height>0.25in</Height>
+                    <Width>2.33333in</Width>
+                    <ZIndex>1</ZIndex>
+                    <ToolTip>=First(Fields!version.Value, "dsVersion")</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>Khaki</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox7">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!db.Value, "dsServerInfo")</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox5</rd:DefaultName>
+                    <Top>0.31944in</Top>
+                    <Left>1.17362in</Left>
+                    <Height>0.25in</Height>
+                    <Width>2.33333in</Width>
+                    <ZIndex>2</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>Khaki</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox8">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Service Tier: </Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Right</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox4</rd:DefaultName>
+                    <Top>0.62639in</Top>
+                    <Left>0.01043in</Left>
+                    <Height>0.25in</Height>
+                    <Width>1.09375in</Width>
+                    <ZIndex>3</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox9">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!edition.Value, "dsServerInfo")
++" ("+First(Fields!service.Value, "dsServerInfo")
++", "
++cstr(First(Fields!dtu.Value, "dsServerInfo"))+"DTU)"</Value>
+                            <Style />
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox5</rd:DefaultName>
+                    <Top>0.62639in</Top>
+                    <Left>1.17362in</Left>
+                    <Height>0.25in</Height>
+                    <Width>2.33333in</Width>
+                    <ZIndex>4</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>WhiteSmoke</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox6">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Database: </Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Right</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox4</rd:DefaultName>
+                    <Top>0.30695in</Top>
+                    <Left>0.01043in</Left>
+                    <Height>0.25in</Height>
+                    <Width>1.09375in</Width>
+                    <ZIndex>5</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox14">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Server Date: </Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Right</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox4</rd:DefaultName>
+                    <Top>0.94583in</Top>
+                    <Left>0.01043in</Left>
+                    <Height>0.25in</Height>
+                    <Width>1.09375in</Width>
+                    <ZIndex>6</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox15">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!time.Value, "dsServerInfo")</Value>
+                            <Style>
+                              <Format>dd MMM yyyy HH:mm, dddd</Format>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox5</rd:DefaultName>
+                    <Top>0.94583in</Top>
+                    <Left>1.17362in</Left>
+                    <Height>0.25in</Height>
+                    <Width>2.33333in</Width>
+                    <ZIndex>7</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>WhiteSmoke</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                </ReportItems>
+                <KeepTogether>true</KeepTogether>
+                <Top>0.11466cm</Top>
+                <Left>0.04407cm</Left>
+                <Height>3.31079cm</Height>
+                <Width>8.99521cm</Width>
+                <ZIndex>21</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Rectangle>
+              <Textbox Name="Textbox82">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>blank</Value>
+                        <Style>
+                          <Color>White</Color>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox82</rd:DefaultName>
+                <Top>4.6778cm</Top>
+                <Left>4.99178cm</Left>
+                <Height>0.24346cm</Height>
+                <Width>2.5cm</Width>
+                <ZIndex>22</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
             </ReportItems>
             <KeepTogether>true</KeepTogether>
             <Top>0.06819in</Top>
             <Left>0.01265in</Left>
             <Height>2.04873in</Height>
-            <Width>15.32324in</Width>
+            <Width>15.72011in</Width>
             <ZIndex>1</ZIndex>
             <Style>
               <Border>
@@ -3988,7 +4812,7 @@ option (recompile)</CommandText>
             </TablixRowHierarchy>
             <DataSetName>dsBackups</DataSetName>
             <Top>6.33333in</Top>
-            <Left>2.87723in</Left>
+            <Left>2.65223in</Left>
             <Height>0.44792in</Height>
             <Width>2.57341in</Width>
             <ZIndex>2</ZIndex>
@@ -4853,8 +5677,14 @@ option (recompile)</CommandText>
                             <Y>=Sum(Fields!Percentage.Value)</Y>
                           </ChartDataPointValues>
                           <ChartDataLabel>
-                            <Style />
-                            <UseValueAsLabel>true</UseValueAsLabel>
+                            <Style>
+                              <FontSize>8pt</FontSize>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                            <Label>=iif(Fields!Percentage.Value&gt;=1
+	,Fields!WaitType.Value + chr(10)+cstr(Fields!Percentage.Value)+"%"
+	,Nothing
+	)</Label>
                             <Visible>true</Visible>
                           </ChartDataLabel>
                           <ToolTip>="Type: "+Fields!WaitType.Value +chr(10)
@@ -4872,8 +5702,7 @@ option (recompile)</CommandText>
                           </ChartItemInLegend>
                         </ChartDataPoint>
                       </ChartDataPoints>
-                      <Type>Shape</Type>
-                      <Subtype>TreeMap</Subtype>
+                      <Subtype>Stacked</Subtype>
                       <Style />
                       <ChartEmptyPoints>
                         <Style />
@@ -4884,6 +5713,9 @@ option (recompile)</CommandText>
                           <Style />
                         </ChartDataLabel>
                       </ChartEmptyPoints>
+                      <ChartItemInLegend>
+                        <LegendText>=Fields!WaitType.Value +" ["+cstr(Fields!Percentage.Value)+"%]"</LegendText>
+                      </ChartItemInLegend>
                       <ValueAxisName>Primary</ValueAxisName>
                       <CategoryAxisName>Primary</CategoryAxisName>
                       <ChartSmartLabel>
@@ -4897,6 +5729,7 @@ option (recompile)</CommandText>
                   <ChartArea Name="Default">
                     <ChartCategoryAxes>
                       <ChartAxis Name="Primary">
+                        <Visible>False</Visible>
                         <Style>
                           <Border>
                             <Color>Gainsboro</Color>
@@ -5126,10 +5959,31 @@ option (recompile)</CommandText>
                     </Style>
                   </ChartArea>
                 </ChartAreas>
+                <ChartLegends>
+                  <ChartLegend Name="Legend1">
+                    <Style>
+                      <BackgroundGradientType>None</BackgroundGradientType>
+                      <FontSize>8pt</FontSize>
+                    </Style>
+                    <Position>BottomCenter</Position>
+                    <Layout>WideTable</Layout>
+                    <ChartLegendTitle>
+                      <Caption />
+                      <Style>
+                        <FontSize>8pt</FontSize>
+                        <FontWeight>Bold</FontWeight>
+                        <TextAlign>Center</TextAlign>
+                      </Style>
+                    </ChartLegendTitle>
+                    <HeaderSeparatorColor>Black</HeaderSeparatorColor>
+                    <ColumnSeparatorColor>Black</ColumnSeparatorColor>
+                  </ChartLegend>
+                </ChartLegends>
                 <ChartTitles>
                   <ChartTitle Name="Default">
-                    <Caption>WAITS (%)</Caption>
+                    <Caption>DB WAITS (%)</Caption>
                     <Style>
+                      <BackgroundColor>WhiteSmoke</BackgroundColor>
                       <BackgroundGradientType>None</BackgroundGradientType>
                       <FontSize>9pt</FontSize>
                       <FontWeight>Bold</FontWeight>
@@ -5163,7 +6017,6 @@ option (recompile)</CommandText>
                 <ZIndex>2</ZIndex>
                 <Style>
                   <Border>
-                    <Color>LightGrey</Color>
                     <Style>None</Style>
                   </Border>
                   <BackgroundColor>White</BackgroundColor>
