@@ -16,31 +16,26 @@
     <DataSet Name="dsPlansPerHour">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>
+        <CommandText>;with data as (
 select 
-left(convert(varchar(20),dateadd(dd,datediff(dd,0,s.creation_time),0),106),6) [day]
-,left(convert(varchar(10),dateadd(hh,datediff(hh,0,s.creation_time),0),108),5) [dt]
-,p.objtype+':'+p.cacheobjtype [type]
-,count(distinct s.plan_handle) [plans]
+	convert(smalldatetime,dateadd(hh,datediff(hh,0,s.creation_time),0)) [dt]
+	,p.objtype+':'+p.cacheobjtype [type]
+	,count(distinct s.plan_handle) [plans]
 from sys.dm_exec_query_stats s
 join sys.dm_exec_cached_plans p on s.plan_handle=p.plan_handle
 group by 
-dateadd(hh,datediff(hh,0,s.creation_time),0)
-,dateadd(dd,datediff(dd,0,s.creation_time),0) 
-,p.objtype+':'+p.cacheobjtype
-order by 
-	dateadd(dd,datediff(dd,0,s.creation_time),0)
-,dateadd(hh,datediff(hh,0,s.creation_time),0)
-
-option (recompile, maxdop 1)
-
-</CommandText>
+	dateadd(hh,datediff(hh,0,s.creation_time),0),
+	p.objtype+':'+p.cacheobjtype
+)
+select 
+	ROW_NUMBER() over (order by dt asc) [n]
+	,[dt]
+	,[type]
+	,plans 
+from data 
+option (recompile, maxdop 1)</CommandText>
       </Query>
       <Fields>
-        <Field Name="day">
-          <DataField>day</DataField>
-          <rd:UserDefined>true</rd:UserDefined>
-        </Field>
         <Field Name="dt">
           <DataField>dt</DataField>
           <rd:UserDefined>true</rd:UserDefined>
@@ -52,6 +47,12 @@ option (recompile, maxdop 1)
         <Field Name="plans">
           <DataField>plans</DataField>
           <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="day">
+          <Value>=format(Fields!dt.Value,"dd MMM")</Value>
+        </Field>
+        <Field Name="time">
+          <Value>=format(Fields!dt.Value,"HH:mm")</Value>
         </Field>
       </Fields>
     </DataSet>
@@ -89,22 +90,22 @@ option (recompile, maxdop 1)
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!day.Value</Value>
+                      <Value>=Fields!dt.Value</Value>
                     </SortExpression>
                   </SortExpressions>
                   <ChartMembers>
                     <ChartMember>
-                      <Group Name="Chart1_CategoryGroup1">
+                      <Group Name="Chart1_CategoryGroup">
                         <GroupExpressions>
-                          <GroupExpression>=Fields!dt.Value</GroupExpression>
+                          <GroupExpression>=Fields!time.Value</GroupExpression>
                         </GroupExpressions>
                       </Group>
                       <SortExpressions>
                         <SortExpression>
-                          <Value>=Fields!dt.Value</Value>
+                          <Value>=Fields!time.Value</Value>
                         </SortExpression>
                       </SortExpressions>
-                      <Label>=Fields!dt.Value</Label>
+                      <Label>=Fields!time.Value</Label>
                     </ChartMember>
                   </ChartMembers>
                   <Label>=Fields!day.Value</Label>
@@ -141,7 +142,7 @@ option (recompile, maxdop 1)
                       </ChartDataLabel>
                       <ToolTip>="*** "+Fields!type.Value+" ***"
 +chr(10)
-+"Date: "+Fields!day.Value+" "+Fields!dt.Value
++"Date: "+format(Fields!dt.Value,"dd MMM HH:mm")
 +chr(10)
 +"Plans: "+cstr(Fields!plans.Value)</ToolTip>
                       <Style />
@@ -180,6 +181,7 @@ option (recompile, maxdop 1)
                         <Style>None</Style>
                       </Border>
                       <FontSize>8pt</FontSize>
+                      <Format>dd MMM</Format>
                       <Color>#5c5c5c</Color>
                     </Style>
                     <ChartAxisTitle>

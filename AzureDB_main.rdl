@@ -652,12 +652,13 @@ option (recompile)</CommandText>
     <DataSet Name="dsTempDBUsed">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>SELECT 
+        <CommandText>
+SELECT 
 	
 	tsu.session_id [spid]
 	,es.login_name [login]
 	,es.program_name [application]
-	,es.host_name  [host]
+	,isnull(case when es.host_name = '' then NULL else es.host_name end,dec.client_net_address)  [host]
     ,SUBSTRING(st.text, er.statement_start_offset/2 + 1
                         ,(CASE WHEN er.statement_end_offset = -1 
                                THEN LEN(CONVERT(nvarchar(max),st.text))*2 
@@ -681,13 +682,14 @@ JOIN sys.dm_exec_requests er
     ON tsu.session_id = er.session_id 
    AND tsu.request_id = er.request_id  
 JOIN sys.dm_exec_sessions es 
-    ON tsu.session_id = es.session_id   
+    ON tsu.session_id = es.session_id  
+join sys.dm_exec_connections dec on er.session_id=dec.session_id 
 CROSS APPLY sys.dm_exec_sql_text(er.sql_handle) st 
 WHERE (tsu.internal_objects_alloc_page_count 
       +tsu.user_objects_alloc_page_count) &gt; 0 
 and tsu.session_id&lt;&gt;@@spid
 group by 
-	es.host_name 
+	isnull(case when es.host_name = '' then NULL else es.host_name end,dec.client_net_address) 
 	,es.login_name
 	,es.program_name
     ,SUBSTRING(st.text, er.statement_start_offset/2 + 1
@@ -1036,6 +1038,35 @@ option (recompile)</CommandText>
       <Fields>
         <Field Name="version">
           <DataField>version</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsMissingIndexes">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>with data as 
+(
+select 
+	count(1) [missing]
+	,'- ' +[statement]+' : ' [state]
+from sys.dm_db_missing_index_details
+where database_id=db_id()
+group by statement 
+)
+select 
+	sum(missing) [missing]
+	,STRING_AGG([state]+convert(varchar(10),missing),char(10)) [objs]
+from data 
+option (recompile)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="missing">
+          <DataField>missing</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="objs">
+          <DataField>objs</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -3750,10 +3781,10 @@ option (recompile)</CommandText>
                   </Paragraph>
                 </Paragraphs>
                 <rd:DefaultName>Textbox1</rd:DefaultName>
-                <Top>0.34721in</Top>
-                <Left>12.10328in</Left>
-                <Height>0.58333in</Height>
-                <Width>0.96017in</Width>
+                <Top>0.55554in</Top>
+                <Left>13.04286in</Left>
+                <Height>0.375in</Height>
+                <Width>0.77852in</Width>
                 <ZIndex>18</ZIndex>
                 <ToolTip>Active trace flags</ToolTip>
                 <Style>
@@ -3775,7 +3806,20 @@ option (recompile)</CommandText>
                   <Paragraph>
                     <TextRuns>
                       <TextRun>
-                        <Value>Trace Flags</Value>
+                        <Value>Trace </Value>
+                        <Style>
+                          <FontWeight>Bold</FontWeight>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>Flags</Value>
                         <Style>
                           <FontWeight>Bold</FontWeight>
                         </Style>
@@ -3787,9 +3831,9 @@ option (recompile)</CommandText>
                   </Paragraph>
                 </Paragraphs>
                 <Top>0.04165in</Top>
-                <Left>12.10328in</Left>
-                <Height>0.25in</Height>
-                <Width>0.96017in</Width>
+                <Left>13.04286in</Left>
+                <Height>0.44445in</Height>
+                <Width>0.77852in</Width>
                 <ZIndex>19</ZIndex>
                 <Style>
                   <Border>
@@ -4227,8 +4271,8 @@ option (recompile)</CommandText>
                   </TablixMembers>
                 </TablixRowHierarchy>
                 <DataSetName>dsTraceFlags</DataSetName>
-                <Top>2.52235cm</Top>
-                <Left>30.74234cm</Left>
+                <Top>2.53996cm</Top>
+                <Left>33.12888cm</Left>
                 <Height>0.69143cm</Height>
                 <Width>7.51951cm</Width>
                 <ZIndex>20</ZIndex>
@@ -4564,12 +4608,128 @@ option (recompile)</CommandText>
                   <PaddingBottom>2pt</PaddingBottom>
                 </Style>
               </Textbox>
+              <Textbox Name="Textbox38">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=First(Fields!missing.Value, "dsMissingIndexes")</Value>
+                        <Style>
+                          <FontSize>14pt</FontSize>
+                          <Format>0;(0)</Format>
+                          <TextDecoration>=iif(First(Fields!missing.Value, "dsMissingIndexes")&gt;0
+	,"Underline"
+	,"None"
+	)</TextDecoration>
+                          <Color>=iif(First(Fields!missing.Value, "dsMissingIndexes")&gt;0
+	,"Blue"
+	,"Black"
+	)</Color>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox1</rd:DefaultName>
+                <ActionInfo>
+                  <Actions>
+                    <Action>
+                      <Drillthrough>
+                        <ReportName>MissingIndexes</ReportName>
+                      </Drillthrough>
+                    </Action>
+                  </Actions>
+                </ActionInfo>
+                <Top>0.55554in</Top>
+                <Left>12.10328in</Left>
+                <Height>0.375in</Height>
+                <Width>0.77852in</Width>
+                <ZIndex>23</ZIndex>
+                <ToolTip>="Objects and indexes missing:"
++chr(10)
++First(Fields!objs.Value, "dsMissingIndexes")</ToolTip>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <BackgroundColor>WhiteSmoke</BackgroundColor>
+                  <VerticalAlign>Middle</VerticalAlign>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
+              <Textbox Name="txtTraceFlags2">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>Missing</Value>
+                        <Style>
+                          <FontWeight>Bold</FontWeight>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>Indexes</Value>
+                        <Style>
+                          <FontWeight>Bold</FontWeight>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                </Paragraphs>
+                <Top>0.04165in</Top>
+                <Left>12.10328in</Left>
+                <Height>0.44445in</Height>
+                <Width>0.77852in</Width>
+                <ZIndex>24</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>Solid</Style>
+                  </Border>
+                  <TopBorder>
+                    <Style>None</Style>
+                  </TopBorder>
+                  <BottomBorder>
+                    <Color>Black</Color>
+                    <Width>1pt</Width>
+                  </BottomBorder>
+                  <LeftBorder>
+                    <Style>None</Style>
+                  </LeftBorder>
+                  <RightBorder>
+                    <Style>None</Style>
+                  </RightBorder>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
             </ReportItems>
             <KeepTogether>true</KeepTogether>
             <Top>0.06819in</Top>
             <Left>0.01265in</Left>
             <Height>2.04873in</Height>
-            <Width>15.72011in</Width>
+            <Width>16.0033in</Width>
             <ZIndex>1</ZIndex>
             <Style>
               <Border>
@@ -6045,7 +6205,7 @@ option (recompile)</CommandText>
                   <Paragraph>
                     <TextRuns>
                       <TextRun>
-                        <Value>Active sessions consuming TEMPDB</Value>
+                        <Value>="Active sessions consuming TEMPDB : " + cstr(countrows("dsTempDBUsed"))</Value>
                         <Style>
                           <FontWeight>Bold</FontWeight>
                         </Style>
@@ -6058,7 +6218,7 @@ option (recompile)</CommandText>
                 <Top>0.14111cm</Top>
                 <Left>0.27812cm</Left>
                 <Height>0.6cm</Height>
-                <Width>6.97144cm</Width>
+                <Width>8.11975cm</Width>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -7403,6 +7563,47 @@ option (recompile)</CommandText>
                   </Border>
                 </Style>
               </Tablix>
+              <Textbox Name="Textbox51">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>="Used space in TEMPDB : " 
++ cstr(
+	round(
+			1.0*(
+		Sum(Fields!OutStandingUserObjectsPages.Value, "dsTempDBUsed")+
+		Sum(Fields!OutStandingInternalObjectsPages.Value, "dsTempDBUsed")
+				)/128/1024,1
+		)
+	)
++"GBs"</Value>
+                        <Style>
+                          <FontWeight>Bold</FontWeight>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox47</rd:DefaultName>
+                <Top>0.14111cm</Top>
+                <Left>8.87834cm</Left>
+                <Height>0.6cm</Height>
+                <Width>6.39995cm</Width>
+                <ZIndex>2</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
             </ReportItems>
             <KeepTogether>true</KeepTogether>
             <Top>17.36549cm</Top>
@@ -7420,7 +7621,7 @@ option (recompile)</CommandText>
         <Height>30.16815cm</Height>
         <Style />
       </Body>
-      <Width>39.97536cm</Width>
+      <Width>40.68052cm</Width>
       <Page>
         <PageHeight>21cm</PageHeight>
         <PageWidth>50cm</PageWidth>
