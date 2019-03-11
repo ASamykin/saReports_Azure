@@ -18,3 +18,5 @@ AzureDB_Main
 This report should be invoked from a user database and shows lots of db-related information.
 Performance data is more granular but is hosted only for the last 1 hour.
 
+Link:
+https://sites.google.com/view/sareports/eng/azuredb
