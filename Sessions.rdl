@@ -2330,7 +2330,7 @@ option (recompile)</CommandText>
               <Border>
                 <Style>None</Style>
               </Border>
-              <BackgroundColor>Yellow</BackgroundColor>
+              <BackgroundColor>Khaki</BackgroundColor>
               <VerticalAlign>Middle</VerticalAlign>
               <PaddingLeft>2pt</PaddingLeft>
               <PaddingRight>2pt</PaddingRight>

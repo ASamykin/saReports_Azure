@@ -1055,7 +1055,7 @@ where database_id=db_id()
 group by statement 
 )
 select 
-	sum(missing) [missing]
+	isnull(sum(missing),0)  [missing]
 	,STRING_AGG([state]+convert(varchar(10),missing),char(10)) [objs]
 from data 
 option (recompile)</CommandText>
@@ -1141,6 +1141,44 @@ option (recompile)</CommandText>
         </Field>
         <Field Name="bytes">
           <DataField>bytes</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsUtilization">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>;with ttl as 
+(
+	select
+		 (count(end_time) - sum(case when avg_cpu_percent &gt; 80 then 1 else 0 end) * 1.0) / count(end_time)*100 [CPUFit]
+		,(count(end_time) - sum(case when avg_log_write_percent &gt; 80 then 1 else 0 end) * 1.0) / count(end_time)*100 [LogWriteFit]
+		,(count(end_time) - sum(case when avg_data_io_percent &gt; 80 then 1 else 0 end) * 1.0) / count(end_time)*100 [PhysicalDataReadFit]
+	FROM sys.dm_db_resource_stats
+)
+select 
+	[CPUFit]
+	,[LogWriteFit]
+	,[PhysicalDataReadFit]
+	,(select min(vals) from (values([CPUFit]),([LogWriteFit]),([PhysicalDataReadFit])) t(vals)) [min]
+from ttl 
+option (recompile)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="CPUFit">
+          <DataField>CPUFit</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="LogWriteFit">
+          <DataField>LogWriteFit</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="PhysicalDataReadFit">
+          <DataField>PhysicalDataReadFit</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="Min">
+          <DataField>Min</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -4948,11 +4986,58 @@ option (recompile)</CommandText>
                   <PaddingBottom>2pt</PaddingBottom>
                 </Style>
               </Textbox>
+              <Textbox Name="Textbox40">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=iif(First(Fields!Min.Value, "dsUtilization")&lt;50
+	,"Warning:  One of the resources fully utilized for more than 50% of time. Consider upgrade of the Service Tier."
+	,""
+	)</Value>
+                        <Style>
+                          <Color>=iif(First(Fields!Min.Value, "dsUtilization")&lt;50
+	,"Tomato"
+	,"Black"
+	)</Color>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox40</rd:DefaultName>
+                <Top>4.64252cm</Top>
+                <Left>0.30458cm</Left>
+                <Height>0.3493cm</Height>
+                <Width>26.62032cm</Width>
+                <ZIndex>25</ZIndex>
+                <ToolTip>=iif(First(Fields!Min.Value, "dsUtilization")&lt;50
+	,"Current Service Tier fits your workload on the following percent:"+chr(10)
+		+"CPU - "+cstr(round(First(Fields!CPUFit.Value, "dsUtilization"),1))+"%"+chr(10)
+		+"LogWrite - "+cstr(round(First(Fields!LogWriteFit.Value, "dsUtilization"),1))+"%"+chr(10)
+		+"Physical Data I/O - "+cstr(round(First(Fields!PhysicalDataReadFit.Value, "dsUtilization"),1))+"%"
+	,Nothing
+	)</ToolTip>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
             </ReportItems>
             <KeepTogether>true</KeepTogether>
             <Top>0.06819in</Top>
             <Left>0.01265in</Left>
-            <Height>2.04873in</Height>
+            <Height>2.12511in</Height>
             <Width>16.13404in</Width>
             <Style>
               <Border>
@@ -5318,8 +5403,9 @@ option (recompile)</CommandText>
                 <ChartLegends>
                   <ChartLegend Name="Default">
                     <Style>
-                      <BackgroundColor>WhiteSmoke</BackgroundColor>
-                      <BackgroundGradientType>None</BackgroundGradientType>
+                      <BackgroundColor>Gainsboro</BackgroundColor>
+                      <BackgroundGradientType>Center</BackgroundGradientType>
+                      <BackgroundGradientEndColor>#00ffffff</BackgroundGradientEndColor>
                       <FontSize>8pt</FontSize>
                     </Style>
                     <Position>TopLeft</Position>
@@ -5725,8 +5811,9 @@ option (recompile)</CommandText>
                 <ChartLegends>
                   <ChartLegend Name="Default">
                     <Style>
-                      <BackgroundColor>WhiteSmoke</BackgroundColor>
-                      <BackgroundGradientType>None</BackgroundGradientType>
+                      <BackgroundColor>Gainsboro</BackgroundColor>
+                      <BackgroundGradientType>Center</BackgroundGradientType>
+                      <BackgroundGradientEndColor>#00ffffff</BackgroundGradientEndColor>
                       <FontSize>8pt</FontSize>
                     </Style>
                     <Position>LeftTop</Position>
@@ -6896,7 +6983,7 @@ option (recompile)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Elapsed</Value>
+                                      <Value>Elapsed (ms)</Value>
                                       <Style>
                                         <FontSize>9pt</FontSize>
                                         <FontWeight>Bold</FontWeight>
@@ -6909,6 +6996,7 @@ option (recompile)</CommandText>
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>Textbox81</rd:DefaultName>
+                              <ToolTip>Total time elapsed in milliseconds since the request arrived.</ToolTip>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
@@ -7336,6 +7424,7 @@ option (recompile)</CommandText>
                                       <Value>=Fields!reads.Value</Value>
                                       <Style>
                                         <FontSize>9pt</FontSize>
+                                        <Format>#,0;(#,0)</Format>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -7439,6 +7528,7 @@ option (recompile)</CommandText>
                                       <Value>=Fields!elapsed.Value</Value>
                                       <Style>
                                         <FontSize>9pt</FontSize>
+                                        <Format>#,0;(#,0)</Format>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -8426,12 +8516,12 @@ option (recompile)</CommandText>
             </Style>
           </Rectangle>
         </ReportItems>
-        <Height>26.06711cm</Height>
+        <Height>20.00815cm</Height>
         <Style />
       </Body>
       <Width>41.85925cm</Width>
       <Page>
-        <PageHeight>21cm</PageHeight>
+        <PageHeight>50cm</PageHeight>
         <PageWidth>50cm</PageWidth>
         <LeftMargin>2.54cm</LeftMargin>
         <RightMargin>2.54cm</RightMargin>

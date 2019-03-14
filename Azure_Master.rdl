@@ -16,9 +16,18 @@
     <DataSet Name="dsResources">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>select 
-	convert(smalldatetime,rs.start_time) [start]
+        <CommandText>;with ranks as 
+(
+select database_name,sum(avg_cpu_percent+avg_data_io_percent+avg_log_write_percent+max_worker_percent+max_session_percent) [n]
+from sys.resource_stats
+where end_time&gt;=convert(date,getdate())
+group by database_name 
+)
+select 
+	r.n
+	,convert(smalldatetime,rs.start_time) [start]
 	,convert(smalldatetime,rs.end_time) [end]
+	,convert(date,rs.end_time) [dt]
 	,rs.database_name [db]
 	,rs.sku
 	,rs.storage_in_megabytes [storageMB]
@@ -33,10 +42,16 @@
 	,d.database_id [id]
 from sys.resource_stats rs
 join sys.databases d  on rs.database_name=d.name
+join ranks r on rs.database_name=r.database_name
 where rs.end_time&gt;=convert(date,getdate())
+order by r.n
 option (recompile)</CommandText>
       </Query>
       <Fields>
+        <Field Name="n">
+          <DataField>n</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
         <Field Name="start">
           <DataField>start</DataField>
           <rd:UserDefined>true</rd:UserDefined>
@@ -93,16 +108,25 @@ option (recompile)</CommandText>
           <DataField>id</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
+        <Field Name="dt">
+          <DataField>dt</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
       </Fields>
     </DataSet>
     <DataSet Name="dsCurrent">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>select quotename(db_name())+' @ '+ convert(varchar(50),@@servername) [info]</CommandText>
+        <CommandText>select quotename(db_name())+' @ '+ convert(varchar(50),@@servername) [info]
+,getdate() [time]</CommandText>
       </Query>
       <Fields>
         <Field Name="info">
           <DataField>info</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="time">
+          <DataField>time</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -153,18 +177,183 @@ option (recompile)</CommandText>
         </Field>
       </Fields>
     </DataSet>
+    <DataSet Name="dsGeoReplica">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>select  d.name
+, count(l.database_id) [n] 
+from sys.databases d 
+left join sys.geo_replication_links l on d.database_id=l.database_id
+group by d.name 
+</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="name">
+          <DataField>name</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="n">
+          <DataField>n</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsServiceObjective">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>select 
+	database_id [dbid]
+	,edition
+	,service_objective [service]
+	,elastic_pool_name [pool]
+from sys.database_service_objectives 
+</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="dbid">
+          <DataField>dbid</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="edition">
+          <DataField>edition</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="service">
+          <DataField>service</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="pool">
+          <DataField>pool</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsDBEvents">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>
+with data as 
+(
+select
+	database_name
+	,event_type
+	,count(1) [n]
+from sys.event_log 
+where 
+end_time&gt;convert(date,getdate()-1)
+and event_type&lt;&gt;'connection_failed'
+group by 
+	database_name
+	,event_type
+)
+select 
+	database_name [db]
+	,sum(n) [events]
+	,STRING_AGG(' - '+event_type+' '+quotename(convert(varchar(10),n)),char(10)) within group (order by n desc) [desc]
+from data
+group by database_name
+option(recompile)
+
+
+
+
+</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="db">
+          <DataField>db</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="events">
+          <DataField>events</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="desc">
+          <DataField>desc</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
   </DataSets>
   <ReportSections>
     <ReportSection>
       <Body>
         <ReportItems>
-          <Tablix Name="Tablix1">
+          <Textbox Name="Textbox11">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>="Resources consumed today"</Value>
+                    <Style>
+                      <FontSize>12pt</FontSize>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style />
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox11</rd:DefaultName>
+            <Top>0.51681in</Top>
+            <Left>0.13416in</Left>
+            <Height>0.25in</Height>
+            <Width>4.80208in</Width>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="Textbox12">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=First(Fields!info.Value, "dsCurrent")</Value>
+                    <Style>
+                      <FontSize>12pt</FontSize>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style>
+                  <TextAlign>Center</TextAlign>
+                </Style>
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox11</rd:DefaultName>
+            <Top>0.14806in</Top>
+            <Left>0.13416in</Left>
+            <Height>0.25in</Height>
+            <Width>4.80208in</Width>
+            <ZIndex>1</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+              <BackgroundColor>Khaki</BackgroundColor>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Tablix Name="Tablix2">
             <TablixCorner>
               <TablixCornerRows>
                 <TablixCornerRow>
                   <TablixCornerCell>
                     <CellContents>
-                      <Textbox Name="Textbox9">
+                      <Textbox Name="Textbox56">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
@@ -173,6 +362,7 @@ option (recompile)</CommandText>
                               <TextRun>
                                 <Value>DBID</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
@@ -182,7 +372,7 @@ option (recompile)</CommandText>
                             </Style>
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>Textbox9</rd:DefaultName>
+                        <rd:DefaultName>Textbox56</rd:DefaultName>
                         <Style>
                           <Border>
                             <Color>LightGrey</Color>
@@ -198,6 +388,7 @@ option (recompile)</CommandText>
                             <Style>None</Style>
                           </RightBorder>
                           <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
                           <PaddingTop>2pt</PaddingTop>
@@ -208,23 +399,90 @@ option (recompile)</CommandText>
                   </TablixCornerCell>
                   <TablixCornerCell>
                     <CellContents>
-                      <Textbox Name="Textbox4">
+                      <Textbox Name="Textbox52">
+                        <CanGrow>true</CanGrow>
+                        <UserSort>
+                          <SortExpression>=Fields!db.Value</SortExpression>
+                          <SortTarget>dsResources</SortTarget>
+                        </UserSort>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Database</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox52</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox67">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>Databases</Value>
+                                <Value>Service </Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
                             </TextRuns>
-                            <Style />
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Tier</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>Textbox4</rd:DefaultName>
+                        <rd:DefaultName>Textbox67</rd:DefaultName>
                         <Style>
                           <Border>
                             <Color>LightGrey</Color>
@@ -257,8 +515,9 @@ option (recompile)</CommandText>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>Service Tier</Value>
+                                <Value>Elastic Pool</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
@@ -284,6 +543,7 @@ option (recompile)</CommandText>
                             <Style>None</Style>
                           </RightBorder>
                           <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
                           <PaddingTop>2pt</PaddingTop>
@@ -294,15 +554,16 @@ option (recompile)</CommandText>
                   </TablixCornerCell>
                   <TablixCornerCell>
                     <CellContents>
-                      <Textbox Name="Textbox6">
+                      <Textbox Name="Textbox109">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>Issues</Value>
+                                <Value>Created</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
@@ -312,8 +573,67 @@ option (recompile)</CommandText>
                             </Style>
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>Textbox6</rd:DefaultName>
-                        <ToolTip>Connectivity Issues</ToolTip>
+                        <rd:DefaultName>Textbox109</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox113">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Geo</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Replica</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox113</rd:DefaultName>
                         <Style>
                           <Border>
                             <Color>LightGrey</Color>
@@ -337,24 +657,184 @@ option (recompile)</CommandText>
                       </Textbox>
                     </CellContents>
                   </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox63">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Connectivity</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Issues</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox63</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox3">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Other</Value>
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Events</Value>
+                                <Style>
+                                  <FontFamily>Arial</FontFamily>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox3</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox101">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>History</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox101</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
                 </TablixCornerRow>
               </TablixCornerRows>
             </TablixCorner>
             <TablixBody>
               <TablixColumns>
                 <TablixColumn>
-                  <Width>4.53125in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>5in</Width>
-                </TablixColumn>
-                <TablixColumn>
-                  <Width>5.26042in</Width>
+                  <Width>8.9375in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
                 <TablixRow>
-                  <Height>0.26042in</Height>
+                  <Height>0.25in</Height>
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
@@ -688,12 +1168,20 @@ option (recompile)</CommandText>
                               <Color>LightGrey</Color>
                               <Style>None</Style>
                             </Border>
+                            <TopBorder>
+                              <Style>Solid</Style>
+                            </TopBorder>
                             <BackgroundColor>White</BackgroundColor>
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
                         </Chart>
                       </CellContents>
                     </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
                     <TablixCell>
                       <CellContents>
                         <Chart Name="Sparkline2">
@@ -967,12 +1455,12 @@ option (recompile)</CommandText>
                                     <Length>0.5</Length>
                                   </ChartMinorTickMarks>
                                   <CrossAt>NaN</CrossAt>
-                                  <Minimum>=Math.Min(Min(Sum(Fields!DataIO.Value, "Sparkline2_CategoryGroup"), "Tablix1"), Min(Sum(Fields!LogWr.Value, "Sparkline2_CategoryGroup"), "Tablix1"))</Minimum>
+                                  <Minimum>=Math.Min(Min(Sum(Fields!DataIO.Value, "Sparkline2_CategoryGroup"), "Tablix2"), Min(Sum(Fields!LogWr.Value, "Sparkline2_CategoryGroup"), "Tablix2"))</Minimum>
                                   <Maximum>100</Maximum>
                                   <ChartAxisScaleBreak>
                                     <Style />
                                   </ChartAxisScaleBreak>
-                                  <rd:SyncScope>Tablix1</rd:SyncScope>
+                                  <rd:SyncScope>Tablix2</rd:SyncScope>
                                   <rd:SyncMinimum>true</rd:SyncMinimum>
                                 </ChartAxis>
                                 <ChartAxis Name="Secondary">
@@ -1068,6 +1556,11 @@ option (recompile)</CommandText>
                         </Chart>
                       </CellContents>
                     </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
                     <TablixCell>
                       <CellContents>
                         <Chart Name="Sparkline3">
@@ -1444,6 +1937,9 @@ option (recompile)</CommandText>
                               <Color>LightGrey</Color>
                               <Style>None</Style>
                             </Border>
+                            <BottomBorder>
+                              <Style>Solid</Style>
+                            </BottomBorder>
                             <BackgroundColor>White</BackgroundColor>
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
@@ -1457,23 +1953,24 @@ option (recompile)</CommandText>
             <TablixColumnHierarchy>
               <TablixMembers>
                 <TablixMember>
-                  <Group Name="ColumnGroup">
+                  <Group Name="ColumnGroup1">
                     <GroupExpressions>
                       <GroupExpression />
                     </GroupExpressions>
                   </Group>
                   <TablixHeader>
-                    <Size>0.25in</Size>
+                    <Size>0.35417in</Size>
                     <CellContents>
-                      <Textbox Name="Textbox2">
+                      <Textbox Name="Textbox50">
                         <CanGrow>true</CanGrow>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
                             <TextRuns>
                               <TextRun>
-                                <Value>CPU</Value>
+                                <Value>CPU / IO / Storage Usage</Value>
                                 <Style>
+                                  <FontSize>9pt</FontSize>
                                   <FontWeight>Bold</FontWeight>
                                 </Style>
                               </TextRun>
@@ -1483,7 +1980,7 @@ option (recompile)</CommandText>
                             </Style>
                           </Paragraph>
                         </Paragraphs>
-                        <rd:DefaultName>Textbox2</rd:DefaultName>
+                        <rd:DefaultName>Textbox50</rd:DefaultName>
                         <Style>
                           <Border>
                             <Color>LightGrey</Color>
@@ -1499,6 +1996,7 @@ option (recompile)</CommandText>
                             <Style>None</Style>
                           </RightBorder>
                           <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
                           <PaddingLeft>2pt</PaddingLeft>
                           <PaddingRight>2pt</PaddingRight>
                           <PaddingTop>2pt</PaddingTop>
@@ -1507,151 +2005,113 @@ option (recompile)</CommandText>
                       </Textbox>
                     </CellContents>
                   </TablixHeader>
-                </TablixMember>
-                <TablixMember>
-                  <TablixHeader>
-                    <Size>0.25in</Size>
-                    <CellContents>
-                      <Textbox Name="Textbox7">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>Data IO &amp; Log Writes</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox7</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Color>LightGrey</Color>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Style>None</Style>
-                          </TopBorder>
-                          <LeftBorder>
-                            <Style>None</Style>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Style>None</Style>
-                          </RightBorder>
-                          <BackgroundColor>WhiteSmoke</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixHeader>
-                </TablixMember>
-                <TablixMember>
-                  <TablixHeader>
-                    <Size>0.25in</Size>
-                    <CellContents>
-                      <Textbox Name="Textbox14">
-                        <CanGrow>true</CanGrow>
-                        <KeepTogether>true</KeepTogether>
-                        <Paragraphs>
-                          <Paragraph>
-                            <TextRuns>
-                              <TextRun>
-                                <Value>Storage Allocated &amp; Used (MB)</Value>
-                                <Style>
-                                  <FontWeight>Bold</FontWeight>
-                                </Style>
-                              </TextRun>
-                            </TextRuns>
-                            <Style>
-                              <TextAlign>Center</TextAlign>
-                            </Style>
-                          </Paragraph>
-                        </Paragraphs>
-                        <rd:DefaultName>Textbox14</rd:DefaultName>
-                        <Style>
-                          <Border>
-                            <Color>LightGrey</Color>
-                            <Style>Solid</Style>
-                          </Border>
-                          <TopBorder>
-                            <Style>None</Style>
-                          </TopBorder>
-                          <LeftBorder>
-                            <Style>None</Style>
-                          </LeftBorder>
-                          <RightBorder>
-                            <Style>None</Style>
-                          </RightBorder>
-                          <BackgroundColor>WhiteSmoke</BackgroundColor>
-                          <PaddingLeft>2pt</PaddingLeft>
-                          <PaddingRight>2pt</PaddingRight>
-                          <PaddingTop>2pt</PaddingTop>
-                          <PaddingBottom>2pt</PaddingBottom>
-                        </Style>
-                      </Textbox>
-                    </CellContents>
-                  </TablixHeader>
+                  <TablixMembers>
+                    <TablixMember />
+                  </TablixMembers>
                 </TablixMember>
               </TablixMembers>
             </TablixColumnHierarchy>
             <TablixRowHierarchy>
               <TablixMembers>
                 <TablixMember>
-                  <Group Name="db">
+                  <Group Name="db2">
                     <GroupExpressions>
                       <GroupExpression>=Fields!db.Value</GroupExpression>
                     </GroupExpressions>
                   </Group>
                   <SortExpressions>
                     <SortExpression>
-                      <Value>=Fields!db.Value</Value>
+                      <Value>=Fields!n.Value</Value>
+                      <Direction>Descending</Direction>
                     </SortExpression>
                   </SortExpressions>
+                  <TablixHeader>
+                    <Size>0.47916in</Size>
+                    <CellContents>
+                      <Textbox Name="id1">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!id.Value</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>id1</rd:DefaultName>
+                        <ToolTip>=cstr(rownumber(Nothing))</ToolTip>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
                   <TablixMembers>
                     <TablixMember>
                       <TablixHeader>
-                        <Size>0.4375in</Size>
+                        <Size>1.65751in</Size>
                         <CellContents>
-                          <Textbox Name="id">
+                          <Textbox Name="db2">
                             <CanGrow>true</CanGrow>
                             <KeepTogether>true</KeepTogether>
                             <Paragraphs>
                               <Paragraph>
                                 <TextRuns>
                                   <TextRun>
-                                    <Value>=Fields!id.Value</Value>
+                                    <Value>=Fields!db.Value</Value>
                                     <Style>
+                                      <FontSize>9pt</FontSize>
                                       <TextDecoration>None</TextDecoration>
                                     </Style>
                                   </TextRun>
                                 </TextRuns>
                                 <Style>
-                                  <TextAlign>Center</TextAlign>
+                                  <TextAlign>Left</TextAlign>
                                 </Style>
                               </Paragraph>
                             </Paragraphs>
-                            <rd:DefaultName>id</rd:DefaultName>
+                            <rd:DefaultName>db2</rd:DefaultName>
                             <Style>
                               <Border>
                                 <Color>LightGrey</Color>
                                 <Style>Solid</Style>
                               </Border>
+                              <TopBorder>
+                                <Style>None</Style>
+                              </TopBorder>
                               <LeftBorder>
                                 <Style>None</Style>
                               </LeftBorder>
                               <RightBorder>
                                 <Style>None</Style>
                               </RightBorder>
+                              <VerticalAlign>Middle</VerticalAlign>
                               <PaddingLeft>2pt</PaddingLeft>
                               <PaddingRight>2pt</PaddingRight>
                               <PaddingTop>2pt</PaddingTop>
@@ -1663,54 +2123,54 @@ option (recompile)</CommandText>
                       <TablixMembers>
                         <TablixMember>
                           <TablixHeader>
-                            <Size>2.04167in</Size>
+                            <Size>1in</Size>
                             <CellContents>
-                              <Textbox Name="db">
+                              <Textbox Name="Textbox68">
                                 <CanGrow>true</CanGrow>
                                 <KeepTogether>true</KeepTogether>
                                 <Paragraphs>
                                   <Paragraph>
                                     <TextRuns>
                                       <TextRun>
-                                        <Value>=Fields!db.Value</Value>
+                                        <Value>=Fields!sku.Value+ " "
++iif(lookup(Fields!id.Value
+		,Fields!dbid.Value
+		,Fields!service.Value
+		,"dsServiceObjective")="ElasticPool"
+	, ""
+	, lookup(Fields!id.Value
+		,Fields!dbid.Value
+		,Fields!service.Value
+		,"dsServiceObjective")
+	)
++chr(10)
++" ("+cstr(Fields!DTULimit.Value)+" DTU)"</Value>
                                         <Style>
-                                          <TextDecoration>Underline</TextDecoration>
-                                          <Color>Blue</Color>
+                                          <FontSize>9pt</FontSize>
                                         </Style>
                                       </TextRun>
                                     </TextRuns>
-                                    <Style />
+                                    <Style>
+                                      <TextAlign>Center</TextAlign>
+                                    </Style>
                                   </Paragraph>
                                 </Paragraphs>
-                                <rd:DefaultName>db</rd:DefaultName>
-                                <ActionInfo>
-                                  <Actions>
-                                    <Action>
-                                      <Drillthrough>
-                                        <ReportName>DBEvents</ReportName>
-                                        <Parameters>
-                                          <Parameter Name="DBName">
-                                            <Value>=Fields!db.Value</Value>
-                                          </Parameter>
-                                        </Parameters>
-                                      </Drillthrough>
-                                    </Action>
-                                  </Actions>
-                                </ActionInfo>
-                                <ToolTip>="Database is created "+format(Fields!created.Value,"dd MMM yyyy HH:mm, dddd")
-+chr(10)+chr(10)
-+"Click to see related events happened today."</ToolTip>
+                                <rd:DefaultName>Textbox68</rd:DefaultName>
                                 <Style>
                                   <Border>
                                     <Color>LightGrey</Color>
                                     <Style>Solid</Style>
                                   </Border>
+                                  <TopBorder>
+                                    <Style>None</Style>
+                                  </TopBorder>
                                   <LeftBorder>
                                     <Style>None</Style>
                                   </LeftBorder>
                                   <RightBorder>
                                     <Style>None</Style>
                                   </RightBorder>
+                                  <VerticalAlign>Middle</VerticalAlign>
                                   <PaddingLeft>2pt</PaddingLeft>
                                   <PaddingRight>2pt</PaddingRight>
                                   <PaddingTop>2pt</PaddingTop>
@@ -1722,17 +2182,23 @@ option (recompile)</CommandText>
                           <TablixMembers>
                             <TablixMember>
                               <TablixHeader>
-                                <Size>1.34375in</Size>
+                                <Size>0.98425in</Size>
                                 <CellContents>
-                                  <Textbox Name="sku">
+                                  <Textbox Name="Textbox2">
                                     <CanGrow>true</CanGrow>
                                     <KeepTogether>true</KeepTogether>
                                     <Paragraphs>
                                       <Paragraph>
                                         <TextRuns>
                                           <TextRun>
-                                            <Value>=Fields!sku.Value+" ("+cstr(Fields!DTULimit.Value)+")"</Value>
-                                            <Style />
+                                            <Value>=lookup(Fields!id.Value
+		,Fields!dbid.Value
+		,Fields!pool.Value
+		,"dsServiceObjective"
+		)</Value>
+                                            <Style>
+                                              <FontSize>9pt</FontSize>
+                                            </Style>
                                           </TextRun>
                                         </TextRuns>
                                         <Style>
@@ -1740,18 +2206,22 @@ option (recompile)</CommandText>
                                         </Style>
                                       </Paragraph>
                                     </Paragraphs>
-                                    <rd:DefaultName>sku</rd:DefaultName>
+                                    <rd:DefaultName>Textbox2</rd:DefaultName>
                                     <Style>
                                       <Border>
                                         <Color>LightGrey</Color>
                                         <Style>Solid</Style>
                                       </Border>
+                                      <TopBorder>
+                                        <Style>None</Style>
+                                      </TopBorder>
                                       <LeftBorder>
                                         <Style>None</Style>
                                       </LeftBorder>
                                       <RightBorder>
                                         <Style>None</Style>
                                       </RightBorder>
+                                      <VerticalAlign>Middle</VerticalAlign>
                                       <PaddingLeft>2pt</PaddingLeft>
                                       <PaddingRight>2pt</PaddingRight>
                                       <PaddingTop>2pt</PaddingTop>
@@ -1763,21 +2233,20 @@ option (recompile)</CommandText>
                               <TablixMembers>
                                 <TablixMember>
                                   <TablixHeader>
-                                    <Size>0.57292in</Size>
+                                    <Size>1.11458in</Size>
                                     <CellContents>
-                                      <Textbox Name="Textbox8">
+                                      <Textbox Name="created">
                                         <CanGrow>true</CanGrow>
                                         <KeepTogether>true</KeepTogether>
                                         <Paragraphs>
                                           <Paragraph>
                                             <TextRuns>
                                               <TextRun>
-                                                <Value>=lookup(Fields!db.Value
-		,Fields!db.Value
-		,Fields!FailAll.Value
-		, "dsConnections"
-		)</Value>
-                                                <Style />
+                                                <Value>=Fields!created.Value</Value>
+                                                <Style>
+                                                  <FontSize>9pt</FontSize>
+                                                  <Format>dd MMM yyyy HH:mm</Format>
+                                                </Style>
                                               </TextRun>
                                             </TextRuns>
                                             <Style>
@@ -1785,40 +2254,282 @@ option (recompile)</CommandText>
                                             </Style>
                                           </Paragraph>
                                         </Paragraphs>
-                                        <rd:DefaultName>Textbox8</rd:DefaultName>
-                                        <ToolTip>=lookup(Fields!db.Value
-		,Fields!db.Value
-		,Fields!Desc.Value
-		, "dsConnections"
-		)</ToolTip>
+                                        <rd:DefaultName>created</rd:DefaultName>
                                         <Style>
                                           <Border>
                                             <Color>LightGrey</Color>
                                             <Style>Solid</Style>
                                           </Border>
+                                          <TopBorder>
+                                            <Style>None</Style>
+                                          </TopBorder>
                                           <LeftBorder>
                                             <Style>None</Style>
                                           </LeftBorder>
                                           <RightBorder>
                                             <Style>None</Style>
                                           </RightBorder>
-                                          <BackgroundColor>=iif(lookup(Fields!db.Value
-		,Fields!db.Value
-		,Fields!FailAll.Value
-		, "dsConnections"
-		)&gt;0
-	,"Tomato"
-	,"Transparent"
-	)</BackgroundColor>
+                                          <VerticalAlign>Middle</VerticalAlign>
                                           <PaddingLeft>2pt</PaddingLeft>
                                           <PaddingRight>2pt</PaddingRight>
                                           <PaddingTop>2pt</PaddingTop>
                                           <PaddingBottom>2pt</PaddingBottom>
                                         </Style>
                                       </Textbox>
-                                      <rd:Selected>true</rd:Selected>
                                     </CellContents>
                                   </TablixHeader>
+                                  <TablixMembers>
+                                    <TablixMember>
+                                      <TablixHeader>
+                                        <Size>0.55083in</Size>
+                                        <CellContents>
+                                          <Textbox Name="Textbox114">
+                                            <CanGrow>true</CanGrow>
+                                            <KeepTogether>true</KeepTogether>
+                                            <Paragraphs>
+                                              <Paragraph>
+                                                <TextRuns>
+                                                  <TextRun>
+                                                    <Value>=iif(
+	lookup(Fields!db.Value
+		,Fields!name.Value
+		,Fields!n.Value
+		, "dsGeoReplica")=0
+	,"no"
+	,"yes"
+	)</Value>
+                                                    <Style>
+                                                      <FontSize>9pt</FontSize>
+                                                    </Style>
+                                                  </TextRun>
+                                                </TextRuns>
+                                                <Style>
+                                                  <TextAlign>Center</TextAlign>
+                                                </Style>
+                                              </Paragraph>
+                                            </Paragraphs>
+                                            <rd:DefaultName>Textbox114</rd:DefaultName>
+                                            <Style>
+                                              <Border>
+                                                <Color>LightGrey</Color>
+                                                <Style>Solid</Style>
+                                              </Border>
+                                              <TopBorder>
+                                                <Style>None</Style>
+                                              </TopBorder>
+                                              <LeftBorder>
+                                                <Style>None</Style>
+                                              </LeftBorder>
+                                              <RightBorder>
+                                                <Style>None</Style>
+                                              </RightBorder>
+                                              <VerticalAlign>Middle</VerticalAlign>
+                                              <PaddingLeft>2pt</PaddingLeft>
+                                              <PaddingRight>2pt</PaddingRight>
+                                              <PaddingTop>2pt</PaddingTop>
+                                              <PaddingBottom>2pt</PaddingBottom>
+                                            </Style>
+                                          </Textbox>
+                                        </CellContents>
+                                      </TablixHeader>
+                                      <TablixMembers>
+                                        <TablixMember>
+                                          <TablixHeader>
+                                            <Size>1in</Size>
+                                            <CellContents>
+                                              <Textbox Name="Textbox64">
+                                                <CanGrow>true</CanGrow>
+                                                <KeepTogether>true</KeepTogether>
+                                                <Paragraphs>
+                                                  <Paragraph>
+                                                    <TextRuns>
+                                                      <TextRun>
+                                                        <Value>=lookup(Fields!db.Value
+		,Fields!db.Value
+		,Fields!FailAll.Value
+		, "dsConnections"
+		)</Value>
+                                                        <Style>
+                                                          <FontSize>9pt</FontSize>
+                                                        </Style>
+                                                      </TextRun>
+                                                    </TextRuns>
+                                                    <Style>
+                                                      <TextAlign>Center</TextAlign>
+                                                    </Style>
+                                                  </Paragraph>
+                                                </Paragraphs>
+                                                <rd:DefaultName>Textbox64</rd:DefaultName>
+                                                <ToolTip>=lookup(Fields!db.Value
+		,Fields!db.Value
+		,Fields!Desc.Value
+		, "dsConnections"
+		)</ToolTip>
+                                                <Style>
+                                                  <Border>
+                                                    <Color>LightGrey</Color>
+                                                    <Style>Solid</Style>
+                                                  </Border>
+                                                  <TopBorder>
+                                                    <Style>None</Style>
+                                                  </TopBorder>
+                                                  <LeftBorder>
+                                                    <Style>None</Style>
+                                                  </LeftBorder>
+                                                  <RightBorder>
+                                                    <Style>None</Style>
+                                                  </RightBorder>
+                                                  <BackgroundColor>=iif(lookup(Fields!db.Value
+		,Fields!db.Value
+		,Fields!FailAll.Value
+		, "dsConnections"
+		)&gt;0
+	,"#ff8e8e"
+	,"Transparent"
+	)</BackgroundColor>
+                                                  <VerticalAlign>Middle</VerticalAlign>
+                                                  <PaddingLeft>2pt</PaddingLeft>
+                                                  <PaddingRight>2pt</PaddingRight>
+                                                  <PaddingTop>2pt</PaddingTop>
+                                                  <PaddingBottom>2pt</PaddingBottom>
+                                                </Style>
+                                              </Textbox>
+                                            </CellContents>
+                                          </TablixHeader>
+                                          <TablixMembers>
+                                            <TablixMember>
+                                              <TablixHeader>
+                                                <Size>0.55717in</Size>
+                                                <CellContents>
+                                                  <Textbox Name="Textbox5">
+                                                    <CanGrow>true</CanGrow>
+                                                    <KeepTogether>true</KeepTogether>
+                                                    <Paragraphs>
+                                                      <Paragraph>
+                                                        <TextRuns>
+                                                          <TextRun>
+                                                            <Value>=lookup(Fields!db.Value
+		, Fields!db.Value
+		, Fields!events.Value
+		, "dsDBEvents")</Value>
+                                                            <Style>
+                                                              <FontSize>9pt</FontSize>
+                                                            </Style>
+                                                          </TextRun>
+                                                        </TextRuns>
+                                                        <Style>
+                                                          <TextAlign>Center</TextAlign>
+                                                        </Style>
+                                                      </Paragraph>
+                                                    </Paragraphs>
+                                                    <rd:DefaultName>Textbox5</rd:DefaultName>
+                                                    <ToolTip>=lookup(Fields!db.Value
+		, Fields!db.Value
+		, "Events happened: "+chr(10)+Fields!desc.Value
+		, "dsDBEvents")</ToolTip>
+                                                    <Style>
+                                                      <Border>
+                                                        <Color>LightGrey</Color>
+                                                        <Style>Solid</Style>
+                                                      </Border>
+                                                      <TopBorder>
+                                                        <Style>None</Style>
+                                                      </TopBorder>
+                                                      <LeftBorder>
+                                                        <Style>None</Style>
+                                                      </LeftBorder>
+                                                      <RightBorder>
+                                                        <Style>None</Style>
+                                                      </RightBorder>
+                                                      <VerticalAlign>Middle</VerticalAlign>
+                                                      <PaddingLeft>2pt</PaddingLeft>
+                                                      <PaddingRight>2pt</PaddingRight>
+                                                      <PaddingTop>2pt</PaddingTop>
+                                                      <PaddingBottom>2pt</PaddingBottom>
+                                                    </Style>
+                                                  </Textbox>
+                                                  <rd:Selected>true</rd:Selected>
+                                                </CellContents>
+                                              </TablixHeader>
+                                              <TablixMembers>
+                                                <TablixMember>
+                                                  <TablixHeader>
+                                                    <Size>0.53125in</Size>
+                                                    <CellContents>
+                                                      <Textbox Name="Textbox102">
+                                                        <CanGrow>true</CanGrow>
+                                                        <KeepTogether>true</KeepTogether>
+                                                        <Paragraphs>
+                                                          <Paragraph>
+                                                            <TextRuns>
+                                                              <TextRun>
+                                                                <Value>View</Value>
+                                                                <Style>
+                                                                  <FontSize>9pt</FontSize>
+                                                                  <TextDecoration>Underline</TextDecoration>
+                                                                  <Color>Blue</Color>
+                                                                </Style>
+                                                              </TextRun>
+                                                            </TextRuns>
+                                                            <Style>
+                                                              <TextAlign>Center</TextAlign>
+                                                            </Style>
+                                                          </Paragraph>
+                                                        </Paragraphs>
+                                                        <rd:DefaultName>Textbox102</rd:DefaultName>
+                                                        <ActionInfo>
+                                                          <Actions>
+                                                            <Action>
+                                                              <Drillthrough>
+                                                                <ReportName>DBEvents</ReportName>
+                                                                <Parameters>
+                                                                  <Parameter Name="DBName">
+                                                                    <Value>=Fields!db.Value</Value>
+                                                                  </Parameter>
+                                                                  <Parameter Name="Date">
+                                                                    <Value>=today()</Value>
+                                                                  </Parameter>
+                                                                </Parameters>
+                                                              </Drillthrough>
+                                                            </Action>
+                                                          </Actions>
+                                                        </ActionInfo>
+                                                        <Style>
+                                                          <Border>
+                                                            <Color>LightGrey</Color>
+                                                            <Style>Solid</Style>
+                                                          </Border>
+                                                          <TopBorder>
+                                                            <Style>None</Style>
+                                                          </TopBorder>
+                                                          <LeftBorder>
+                                                            <Style>None</Style>
+                                                          </LeftBorder>
+                                                          <RightBorder>
+                                                            <Style>None</Style>
+                                                          </RightBorder>
+                                                          <VerticalAlign>Middle</VerticalAlign>
+                                                          <PaddingLeft>2pt</PaddingLeft>
+                                                          <PaddingRight>2pt</PaddingRight>
+                                                          <PaddingTop>2pt</PaddingTop>
+                                                          <PaddingBottom>2pt</PaddingBottom>
+                                                        </Style>
+                                                      </Textbox>
+                                                    </CellContents>
+                                                  </TablixHeader>
+                                                  <TablixMembers>
+                                                    <TablixMember />
+                                                    <TablixMember />
+                                                    <TablixMember />
+                                                  </TablixMembers>
+                                                </TablixMember>
+                                              </TablixMembers>
+                                            </TablixMember>
+                                          </TablixMembers>
+                                        </TablixMember>
+                                      </TablixMembers>
+                                    </TablixMember>
+                                  </TablixMembers>
                                 </TablixMember>
                               </TablixMembers>
                             </TablixMember>
@@ -1831,60 +2542,28 @@ option (recompile)</CommandText>
               </TablixMembers>
             </TablixRowHierarchy>
             <DataSetName>dsResources</DataSetName>
-            <Top>0.88417in</Top>
+            <Top>0.87375in</Top>
             <Left>0.13416in</Left>
-            <Height>0.51042in</Height>
-            <Width>19.1875in</Width>
+            <Height>1.10417in</Height>
+            <Width>16.81225in</Width>
+            <ZIndex>2</ZIndex>
             <Style>
               <Border>
                 <Style>None</Style>
               </Border>
             </Style>
           </Tablix>
-          <Textbox Name="Textbox11">
+          <Textbox Name="Textbox4">
             <CanGrow>true</CanGrow>
             <KeepTogether>true</KeepTogether>
             <Paragraphs>
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>="Resource consumption since "+format(Now(),"dd MMM yyyy dddd")</Value>
+                    <Value>=format(First(Fields!time.Value, "dsCurrent"),"dd MMMM HH:mm, dddd")</Value>
                     <Style>
-                      <FontSize>12pt</FontSize>
                       <FontWeight>Bold</FontWeight>
-                    </Style>
-                  </TextRun>
-                </TextRuns>
-                <Style />
-              </Paragraph>
-            </Paragraphs>
-            <rd:DefaultName>Textbox11</rd:DefaultName>
-            <Top>0.4675in</Top>
-            <Left>0.13416in</Left>
-            <Height>0.25in</Height>
-            <Width>4.80208in</Width>
-            <ZIndex>1</ZIndex>
-            <Style>
-              <Border>
-                <Style>None</Style>
-              </Border>
-              <PaddingLeft>2pt</PaddingLeft>
-              <PaddingRight>2pt</PaddingRight>
-              <PaddingTop>2pt</PaddingTop>
-              <PaddingBottom>2pt</PaddingBottom>
-            </Style>
-          </Textbox>
-          <Textbox Name="Textbox12">
-            <CanGrow>true</CanGrow>
-            <KeepTogether>true</KeepTogether>
-            <Paragraphs>
-              <Paragraph>
-                <TextRuns>
-                  <TextRun>
-                    <Value>=First(Fields!info.Value, "dsCurrent")</Value>
-                    <Style>
-                      <FontSize>12pt</FontSize>
-                      <FontWeight>Bold</FontWeight>
+                      <Format>dd MMM yyyy, dddd</Format>
                     </Style>
                   </TextRun>
                 </TextRuns>
@@ -1893,17 +2572,18 @@ option (recompile)</CommandText>
                 </Style>
               </Paragraph>
             </Paragraphs>
-            <rd:DefaultName>Textbox11</rd:DefaultName>
+            <rd:DefaultName>Textbox2</rd:DefaultName>
             <Top>0.14806in</Top>
-            <Left>0.13416in</Left>
+            <Left>5.31966in</Left>
             <Height>0.25in</Height>
-            <Width>4.80208in</Width>
-            <ZIndex>2</ZIndex>
+            <Width>3.01042in</Width>
+            <ZIndex>3</ZIndex>
             <Style>
               <Border>
                 <Style>None</Style>
               </Border>
               <BackgroundColor>Khaki</BackgroundColor>
+              <VerticalAlign>Middle</VerticalAlign>
               <PaddingLeft>2pt</PaddingLeft>
               <PaddingRight>2pt</PaddingRight>
               <PaddingTop>2pt</PaddingTop>
@@ -1911,15 +2591,18 @@ option (recompile)</CommandText>
             </Style>
           </Textbox>
         </ReportItems>
-        <Height>2.32292in</Height>
+        <Height>5.76476cm</Height>
         <Style />
       </Body>
-      <Width>19.88416in</Width>
+      <Width>44.12867cm</Width>
       <Page>
-        <LeftMargin>1in</LeftMargin>
-        <RightMargin>1in</RightMargin>
-        <TopMargin>1in</TopMargin>
-        <BottomMargin>1in</BottomMargin>
+        <PageHeight>70cm</PageHeight>
+        <PageWidth>70cm</PageWidth>
+        <LeftMargin>2.54cm</LeftMargin>
+        <RightMargin>2.54cm</RightMargin>
+        <TopMargin>2.54cm</TopMargin>
+        <BottomMargin>2.54cm</BottomMargin>
+        <ColumnSpacing>1.27cm</ColumnSpacing>
         <Style />
       </Page>
     </ReportSection>
@@ -1930,6 +2613,6 @@ option (recompile)</CommandText>
       <NumberOfRows>2</NumberOfRows>
     </GridLayoutDefinition>
   </ReportParametersLayout>
-  <rd:ReportUnitType>Inch</rd:ReportUnitType>
+  <rd:ReportUnitType>Cm</rd:ReportUnitType>
   <rd:ReportID>5826a332-6886-4f55-9e94-4f22729938e4</rd:ReportID>
 </Report>
