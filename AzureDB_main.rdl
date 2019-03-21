@@ -89,7 +89,7 @@ if @keep = 1   /*check report variable*/
 			,[io]
 			,[logwrite]
 			,[memory]
-		from ##buffer'
+		from ##buffer where [time]&gt;=convert(date,getdate())'
 
 		if object_id('tempdb..##buffer') is null
 			begin
@@ -231,15 +231,20 @@ option (recompile)</CommandText>
     <DataSet Name="dsProcCache">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>select 
-	objtype
-	,cacheobjtype
-	,count(1) [plans]
-	,convert(numeric(5,1),sum(1.*size_in_bytes)/1024/1024) [SizeMB]
-	,max(size_in_bytes)/1024/1024 [MaxPlan]
-from sys.dm_exec_cached_plans
-group by cacheobjtype
-	,objtype
+        <CommandText>	select  objtype [objtype]
+			, cacheobjtype
+			, sum(1) [plans]
+			, convert(numeric(10,1),sum(size_in_bytes/1024.)/1024.) [SizeMB]
+
+			, max(size_in_bytes)/1024 [MaxPlan] -- KB
+
+			, floor(avg(convert(numeric(18,2),usecounts))) [UseCountAll_AVG]
+			, sum(case when usecounts = 1 THEN 1 else 0 end) [UseCount1_Amount]
+			, convert(numeric(5,2),sum(case when usecounts = 1 THEN 1. else 0. end)/sum(1)*100) [UseCount1_Percent]
+			, convert(numeric(10,2),sum(cast((CASE WHEN usecounts = 1 THEN size_in_bytes ELSE 0 END) as decimal(18,2)))/1024./1024.) AS [USECount1_MB]
+	from sys.dm_exec_cached_plans 
+	group by objtype, cacheobjtype
+	order by 4 desc
 option (recompile)</CommandText>
       </Query>
       <Fields>
@@ -261,6 +266,22 @@ option (recompile)</CommandText>
         </Field>
         <Field Name="MaxPlan">
           <DataField>MaxPlan</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="UseCountAll_AVG">
+          <DataField>UseCountAll_AVG</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="UseCount1_Amount">
+          <DataField>UseCount1_Amount</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="UseCount1_Percent">
+          <DataField>UseCount1_Percent</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="USECount1_MB">
+          <DataField>USECount1_MB</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -302,8 +323,12 @@ select
 	,des.last_request_end_time [last_batch]
 from sys.dm_exec_sessions des
 left join sys.dm_exec_requests der on des.session_id=der.session_id
-where des.is_user_process=1
-and des.database_id=db_id()
+where 
+	(des.is_user_process=1
+	or 
+	des.session_id in (select blocking_session_id from sys.dm_exec_requests)
+	)
+	and des.database_id=db_id()
 )
 select 
 	count(distinct spid) [connected]
@@ -321,8 +346,7 @@ select
 	,(select '- '+STRING_AGG([block],char(10)+'- ') from (select  convert(varchar(20),[blocked]) +' '+quotename(convert(varchar(20),count(1))) [block] from data where [blocked]!=0 group by [blocked]) a ) [blocked]
 
 from data
-option (recompile)
-</CommandText>
+option (recompile)</CommandText>
       </Query>
       <Fields>
         <Field Name="connected">
@@ -578,7 +602,7 @@ option (recompile)</CommandText>
         <CommandText>select 
 	replace(type_desc,'EXTERNAL_','EXT_') [type]
 	,convert(varchar(20),count(1)) [num]
-	,'Names: '+char(10)+STRING_AGG('- ' + name,char(10)) [names]
+	,'Names: '+char(10)+STRING_AGG('- ' + name,char(10)) within group (order by [name]) [names] 
 from sys.database_principals
 where type_desc not in ('DATABASE_ROLE')
 and principal_id&gt;4
@@ -607,7 +631,7 @@ option (recompile)</CommandText>
 select 
 	'Non-default settings' [name]
 	,count(1) [num]
-	,'Amended settings:'+char(10)+STRING_AGG(' - '+name+': '+convert(varchar(20),[value]),char(10)) [desc]
+	,'Amended settings:'+char(10)+STRING_AGG(' - '+name+': '+convert(varchar(20),[value]),char(10)) within group (order by [name]) [desc]
 from sys.database_scoped_configurations
 where is_value_default&lt;&gt;1
 option (recompile)
@@ -619,12 +643,11 @@ select
 	,'Amended settings:'+char(10)
 		+STRING_AGG(case 
 					when is_value_default&lt;&gt;1 then ' - '+name+': '+convert(varchar(20),[value]) 
-					else '' 
 					end ,char(10)) [changed]
 	,'Default settings:'+char(10)
 		+STRING_AGG(case 
 					when is_value_default=1 then ' - '+name+': '+convert(varchar(20),[value]) 
-					else '' 
+ 
 					end ,char(10)) [default]
 from sys.database_scoped_configurations
 order by name
@@ -1179,6 +1202,143 @@ option (recompile)</CommandText>
         </Field>
         <Field Name="Min">
           <DataField>Min</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsAutomatedTuningConfig">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>select 
+	name
+	,actual_state_desc [state]
+	,reason_desc [reason]
+from sys.database_automatic_tuning_options
+</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="name">
+          <DataField>name</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="state">
+          <DataField>state</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="reason">
+          <DataField>reason</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsTuningRecommends">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>
+;with data as 
+(
+	select
+		ddtr.type [Type]
+		,JSON_VALUE(ddtr.state,'$.currentValue') [CurrentState]
+		,JSON_VALUE(ddtr.state,'$.reason') [CurrentStateReason]
+		,ddtr.execute_action_initiated_by [by]
+		,count(1) [n]
+	from sys.dm_db_tuning_recommendations ddtr
+	cross apply  openjson(ddtr.details,'$.planForceDetails')
+			WITH (query_id INT '$.queryId',
+				  regressedPlanId INT '$.regressedPlanId',
+				  recommendedPlanId INT '$.recommendedPlanId') 
+	group by 
+		ddtr.type
+		,JSON_VALUE(ddtr.state,'$.currentValue')
+		,JSON_VALUE(ddtr.state,'$.reason')
+		,ddtr.execute_action_initiated_by
+)
+select 
+	[type]
+	,sum(n) [amount]
+	,STRING_AGG(' - '+[Type]+': '+[CurrentState] + ' '+quotename(convert(varchar(10),[n]))+ ' with reason "'+[CurrentStateReason]+'"'+isnull(' implemented by '+[by],''),char(10)) [desc]
+from data 
+group by [type]
+option (recompile)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="type">
+          <DataField>type</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="amount">
+          <DataField>amount</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="desc">
+          <DataField>desc</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsProcCacheDetails">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>;with SizeLeaders as (
+select 
+	ROW_NUMBER() over (partition by objtype,cacheobjtype order by size_in_bytes desc) n
+	,objtype,cacheobjtype,size_in_bytes
+	,usecounts,refcounts,plan_handle
+from sys.dm_exec_cached_plans 
+)
+, OtherSameSize as 
+(select 
+	objtype,cacheobjtype,size_in_bytes,count(1) [amount]
+from sys.dm_exec_cached_plans 
+group by objtype,cacheobjtype,size_in_bytes
+)
+select 
+	b.objtype
+	,b.cacheobjtype
+	,b.size_in_bytes/1024 [sizeKB]
+	,b.usecounts
+	,b.refcounts
+	,d.amount [PlansSameSize]
+	,case when t.dbid=32767 then 'mssqlsystemresource' else db_name(t.dbid) end [db]
+	,isnull(object_name(t.objectid,t.dbid),left(t.text,1000)) [ObjectQuery]
+from SizeLeaders b
+join OtherSameSize d on (b.objtype=d.objtype and b.cacheobjtype=d.cacheobjtype and b.size_in_bytes=d.size_in_bytes)
+outer apply sys.dm_exec_sql_text(b.plan_handle) t
+where b.n=1
+option (recompile,maxdop 1)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="objtype">
+          <DataField>objtype</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="cacheobjtype">
+          <DataField>cacheobjtype</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="sizeKB">
+          <DataField>sizeKB</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="usecounts">
+          <DataField>usecounts</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="refcounts">
+          <DataField>refcounts</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="PlansSameSize">
+          <DataField>PlansSameSize</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="db">
+          <DataField>db</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="ObjectQuery">
+          <DataField>ObjectQuery</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -2015,13 +2175,22 @@ option (recompile)</CommandText>
                       <Width>1in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>0.62in</Width>
+                      <Width>0.53667in</Width>
                     </TablixColumn>
                     <TablixColumn>
                       <Width>0.6875in</Width>
                     </TablixColumn>
                     <TablixColumn>
                       <Width>0.63542in</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>0.56631in</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>0.47384in</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>0.64388in</Width>
                     </TablixColumn>
                   </TablixColumns>
                   <TablixRows>
@@ -2145,7 +2314,21 @@ option (recompile)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Size (MB)</Value>
+                                      <Value>Size</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>(MB)</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                         <FontWeight>Bold</FontWeight>
@@ -2181,7 +2364,21 @@ option (recompile)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Max (MB)</Value>
+                                      <Value>Largest</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>(MB)</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                         <FontWeight>Bold</FontWeight>
@@ -2194,6 +2391,156 @@ option (recompile)</CommandText>
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>Textbox58</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox72">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Used</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>AVG</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox72</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox82">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Used </Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Once</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox82</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox86">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Used Once</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>(MB)</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox86</rd:DefaultName>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
@@ -2327,7 +2674,7 @@ option (recompile)</CommandText>
                                       <Value>=Fields!SizeMB.Value</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
-                                        <Format>#,0;(#,0)</Format>
+                                        <Format>#,0.0;(#,0.0)</Format>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -2359,7 +2706,7 @@ option (recompile)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>=Fields!MaxPlan.Value</Value>
+                                      <Value>=formatnumber(Fields!MaxPlan.Value/1024,1)</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                         <Format>#,0;(#,0)</Format>
@@ -2372,11 +2719,125 @@ option (recompile)</CommandText>
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>MaxPlan</rd:DefaultName>
+                              <ToolTip>=formatPercent(cdbl(Fields!MaxPlan.Value/1024)/cdbl(Fields!SizeMB.Value),2) +" of total for this object type."
++chr(10)+"******"+chr(10)
++Lookup(Fields!objtype.Value+Fields!cacheobjtype.Value
+		,Fields!objtype.Value+Fields!cacheobjtype.Value
+		,"Plans of the same size: "+cstr(Fields!PlansSameSize.Value)+chr(10)
+		  +"Use/Ref counts: "+cstr(Fields!usecounts.Value)+"/"+cstr(Fields!refcounts.Value)+chr(10)
+		  +iif(isNothing(Fields!db.Value)=True,"[query text is not available]","["+Fields!db.Value+"]: "+Fields!ObjectQuery.Value)
+		,"dsProcCacheDetails")</ToolTip>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
                                   <Style>Solid</Style>
                                 </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="UseCountAll_AVG">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Fields!UseCountAll_AVG.Value</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>UseCountAll_AVG</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="UseCount1_Amount">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Fields!UseCount1_Amount.Value</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>UseCount1_Amount</rd:DefaultName>
+                              <ToolTip>=Fields!UseCount1_Percent.Value</ToolTip>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="USECount1_MB">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=formatnumber(Fields!USECount1_MB.Value,1)</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>USECount1_MB</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
                                 <PaddingLeft>2pt</PaddingLeft>
                                 <PaddingRight>2pt</PaddingRight>
                                 <PaddingTop>2pt</PaddingTop>
@@ -2391,6 +2852,9 @@ option (recompile)</CommandText>
                 </TablixBody>
                 <TablixColumnHierarchy>
                   <TablixMembers>
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
                     <TablixMember />
                     <TablixMember />
                     <TablixMember />
@@ -2418,7 +2882,7 @@ option (recompile)</CommandText>
                 <Top>0.99305in</Top>
                 <Left>7.98141in</Left>
                 <Height>0.33333in</Height>
-                <Width>3.76584in</Width>
+                <Width>5.36654in</Width>
                 <ZIndex>13</ZIndex>
                 <Visibility>
                   <Hidden>true</Hidden>
@@ -3052,7 +3516,7 @@ option (recompile)</CommandText>
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>blockedsessions</rd:DefaultName>
-                              <ToolTip>=Fields!blocked.Value</ToolTip>
+                              <ToolTip>="Blockers and [Waiting sessions]: "+chr(10)+Fields!blocked.Value</ToolTip>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
@@ -3203,207 +3667,6 @@ option (recompile)</CommandText>
                   </Border>
                 </Style>
               </Tablix>
-              <Textbox Name="Textbox29">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>=First(Fields!num.Value, "dsDBConfig")</Value>
-                        <Style>
-                          <FontSize>14pt</FontSize>
-                          <Format>0;(0)</Format>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox1</rd:DefaultName>
-                <Top>0.55554in</Top>
-                <Left>10.80953in</Left>
-                <Height>0.375in</Height>
-                <Width>1.14584in</Width>
-                <ZIndex>15</ZIndex>
-                <ToolTip>=iif(First(Fields!num.Value, "dsDBConfig")&gt;0
-	,First(Fields!changed.Value, "dsDBConfig")
-	,First(Fields!default.Value, "dsDBConfig")
-	)</ToolTip>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <BackgroundColor>=iif(First(Fields!num.Value, "dsDBConfig")&gt;0
-	,"Orange"
-	,"WhiteSmoke"
-	)</BackgroundColor>
-                  <VerticalAlign>Middle</VerticalAlign>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox35">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Non-default </Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>DB settings</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox2</rd:DefaultName>
-                <Top>0.04165in</Top>
-                <Left>10.80953in</Left>
-                <Height>0.44445in</Height>
-                <Width>1.14584in</Width>
-                <ZIndex>16</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>Solid</Style>
-                  </Border>
-                  <TopBorder>
-                    <Style>None</Style>
-                  </TopBorder>
-                  <BottomBorder>
-                    <Color>Black</Color>
-                    <Width>1pt</Width>
-                  </BottomBorder>
-                  <LeftBorder>
-                    <Style>None</Style>
-                  </LeftBorder>
-                  <RightBorder>
-                    <Style>None</Style>
-                  </RightBorder>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox36">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>=CountRows("dsTraceFlags")</Value>
-                        <Style>
-                          <FontSize>14pt</FontSize>
-                          <Format>0;(0)</Format>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox1</rd:DefaultName>
-                <Top>0.55554in</Top>
-                <Left>13.04286in</Left>
-                <Height>0.375in</Height>
-                <Width>0.77852in</Width>
-                <ZIndex>17</ZIndex>
-                <ToolTip>Active trace flags</ToolTip>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <BackgroundColor>WhiteSmoke</BackgroundColor>
-                  <VerticalAlign>Middle</VerticalAlign>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="txtTraceFlags">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Trace </Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Flags</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <Top>0.04165in</Top>
-                <Left>13.04286in</Left>
-                <Height>0.44445in</Height>
-                <Width>0.77852in</Width>
-                <ZIndex>18</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>Solid</Style>
-                  </Border>
-                  <TopBorder>
-                    <Style>None</Style>
-                  </TopBorder>
-                  <BottomBorder>
-                    <Color>Black</Color>
-                    <Width>1pt</Width>
-                  </BottomBorder>
-                  <LeftBorder>
-                    <Style>None</Style>
-                  </LeftBorder>
-                  <RightBorder>
-                    <Style>None</Style>
-                  </RightBorder>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
               <Tablix Name="Tablix9">
                 <TablixBody>
                   <TablixColumns>
@@ -3818,10 +4081,10 @@ option (recompile)</CommandText>
                 </TablixRowHierarchy>
                 <DataSetName>dsTraceFlags</DataSetName>
                 <Top>2.53996cm</Top>
-                <Left>33.12888cm</Left>
+                <Left>34.33538cm</Left>
                 <Height>0.69143cm</Height>
                 <Width>7.51951cm</Width>
-                <ZIndex>19</ZIndex>
+                <ZIndex>15</ZIndex>
                 <Visibility>
                   <Hidden>true</Hidden>
                   <ToggleItem>txtTraceFlags</ToggleItem>
@@ -4115,129 +4378,13 @@ option (recompile)</CommandText>
                 <Left>0.04407cm</Left>
                 <Height>3.31079cm</Height>
                 <Width>8.99521cm</Width>
-                <ZIndex>20</ZIndex>
+                <ZIndex>16</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
                   </Border>
                 </Style>
               </Rectangle>
-              <Textbox Name="Textbox38">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>=First(Fields!missing.Value, "dsMissingIndexes")</Value>
-                        <Style>
-                          <FontSize>14pt</FontSize>
-                          <Format>0;(0)</Format>
-                          <TextDecoration>=iif(First(Fields!missing.Value, "dsMissingIndexes")&gt;0
-	,"Underline"
-	,"None"
-	)</TextDecoration>
-                          <Color>=iif(First(Fields!missing.Value, "dsMissingIndexes")&gt;0
-	,"Blue"
-	,"Black"
-	)</Color>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox1</rd:DefaultName>
-                <ActionInfo>
-                  <Actions>
-                    <Action>
-                      <Drillthrough>
-                        <ReportName>MissingIndexes</ReportName>
-                      </Drillthrough>
-                    </Action>
-                  </Actions>
-                </ActionInfo>
-                <Top>0.55554in</Top>
-                <Left>12.10328in</Left>
-                <Height>0.375in</Height>
-                <Width>0.77852in</Width>
-                <ZIndex>21</ZIndex>
-                <ToolTip>="Objects and indexes missing:"
-+chr(10)
-+First(Fields!objs.Value, "dsMissingIndexes")</ToolTip>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <BackgroundColor>WhiteSmoke</BackgroundColor>
-                  <VerticalAlign>Middle</VerticalAlign>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="txtTraceFlags2">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Missing</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Indexes</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <Top>0.04165in</Top>
-                <Left>12.10328in</Left>
-                <Height>0.44445in</Height>
-                <Width>0.77852in</Width>
-                <ZIndex>22</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>Solid</Style>
-                  </Border>
-                  <TopBorder>
-                    <Style>None</Style>
-                  </TopBorder>
-                  <BottomBorder>
-                    <Color>Black</Color>
-                    <Width>1pt</Width>
-                  </BottomBorder>
-                  <LeftBorder>
-                    <Style>None</Style>
-                  </LeftBorder>
-                  <RightBorder>
-                    <Style>None</Style>
-                  </RightBorder>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
               <Tablix Name="Tablix8">
                 <TablixBody>
                   <TablixColumns>
@@ -4945,7 +5092,7 @@ option (recompile)</CommandText>
                 <Left>27.45621cm</Left>
                 <Height>0.69956cm</Height>
                 <Width>13.19218cm</Width>
-                <ZIndex>23</ZIndex>
+                <ZIndex>17</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -4975,7 +5122,7 @@ option (recompile)</CommandText>
                 <Left>9.57673in</Left>
                 <Height>0.25in</Height>
                 <Width>1.09375in</Width>
-                <ZIndex>24</ZIndex>
+                <ZIndex>18</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -5015,7 +5162,7 @@ option (recompile)</CommandText>
                 <Left>0.30458cm</Left>
                 <Height>0.3493cm</Height>
                 <Width>26.62032cm</Width>
-                <ZIndex>25</ZIndex>
+                <ZIndex>19</ZIndex>
                 <ToolTip>=iif(First(Fields!Min.Value, "dsUtilization")&lt;50
 	,"Current Service Tier fits your workload on the following percent:"+chr(10)
 		+"CPU - "+cstr(round(First(Fields!CPUFit.Value, "dsUtilization"),1))+"%"+chr(10)
@@ -5033,12 +5180,495 @@ option (recompile)</CommandText>
                   <PaddingBottom>2pt</PaddingBottom>
                 </Style>
               </Textbox>
+              <Tablix Name="Tablix10">
+                <TablixBody>
+                  <TablixColumns>
+                    <TablixColumn>
+                      <Width>4.26179cm</Width>
+                    </TablixColumn>
+                  </TablixColumns>
+                  <TablixRows>
+                    <TablixRow>
+                      <Height>1.12003cm</Height>
+                      <TablixCells>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox68">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Automatic</Value>
+                                      <Style>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Tuning </Value>
+                                      <Style>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox68</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <TopBorder>
+                                  <Style>None</Style>
+                                </TopBorder>
+                                <BottomBorder>
+                                  <Color>Black</Color>
+                                </BottomBorder>
+                                <LeftBorder>
+                                  <Style>None</Style>
+                                </LeftBorder>
+                                <RightBorder>
+                                  <Style>None</Style>
+                                </RightBorder>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                      </TablixCells>
+                    </TablixRow>
+                    <TablixRow>
+                      <Height>0.32634cm</Height>
+                      <TablixCells>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="name1">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Fields!name.Value
++lookup(Fields!name.Value
+		,Fields!type.Value
+		," [" +cstr(Fields!amount.Value)+"]"
+		, "dsTuningRecommends"
+		)</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>name1</rd:DefaultName>
+                              <ToolTip>="Status: "+Fields!state.Value+" ("+ Fields!reason.Value+")"
++lookup(Fields!name.Value
+		,Fields!type.Value
+		,chr(10)+chr(10)+"Implemented: "+chr(10)+Fields!desc.Value
+		,"dsTuningRecommends"
+		)</ToolTip>
+                              <Style>
+                                <Border>
+                                  <Style>None</Style>
+                                </Border>
+                                <BackgroundColor>=iif(Fields!state.Value="ON"
+	,"LightGreen"
+	,"Silver"
+	)</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                      </TablixCells>
+                    </TablixRow>
+                  </TablixRows>
+                </TablixBody>
+                <TablixColumnHierarchy>
+                  <TablixMembers>
+                    <TablixMember />
+                  </TablixMembers>
+                </TablixColumnHierarchy>
+                <TablixRowHierarchy>
+                  <TablixMembers>
+                    <TablixMember>
+                      <KeepWithGroup>After</KeepWithGroup>
+                    </TablixMember>
+                    <TablixMember>
+                      <Group Name="Details7" />
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixRowHierarchy>
+                <DataSetName>dsAutomatedTuningConfig</DataSetName>
+                <Top>0.11467cm</Top>
+                <Left>35.55712cm</Left>
+                <Height>1.44637cm</Height>
+                <Width>4.26179cm</Width>
+                <ZIndex>20</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Tablix>
+              <Rectangle Name="Rectangle6">
+                <ReportItems>
+                  <Textbox Name="Textbox29">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!num.Value, "dsDBConfig")</Value>
+                            <Style>
+                              <FontSize>14pt</FontSize>
+                              <Format>0;(0)</Format>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox1</rd:DefaultName>
+                    <Top>0.5382in</Top>
+                    <Height>0.375in</Height>
+                    <Width>1.14584in</Width>
+                    <ToolTip>=iif(First(Fields!num.Value, "dsDBConfig")&gt;0
+	,First(Fields!changed.Value, "dsDBConfig")+chr(10)+chr(10)+First(Fields!default.Value, "dsDBConfig")
+	,First(Fields!default.Value, "dsDBConfig")
+	)</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>=iif(First(Fields!num.Value, "dsDBConfig")&gt;0
+	,"Orange"
+	,"WhiteSmoke"
+	)</BackgroundColor>
+                      <VerticalAlign>Middle</VerticalAlign>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox35">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Non-default </Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>DB settings</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox2</rd:DefaultName>
+                    <Top>0.02431in</Top>
+                    <Height>0.44445in</Height>
+                    <Width>1.14584in</Width>
+                    <ZIndex>1</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>Solid</Style>
+                      </Border>
+                      <TopBorder>
+                        <Style>None</Style>
+                      </TopBorder>
+                      <BottomBorder>
+                        <Color>Black</Color>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <LeftBorder>
+                        <Style>None</Style>
+                      </LeftBorder>
+                      <RightBorder>
+                        <Style>None</Style>
+                      </RightBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox38">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!missing.Value, "dsMissingIndexes")</Value>
+                            <Style>
+                              <FontSize>14pt</FontSize>
+                              <Format>0;(0)</Format>
+                              <TextDecoration>=iif(First(Fields!missing.Value, "dsMissingIndexes")&gt;0
+	,"Underline"
+	,"None"
+	)</TextDecoration>
+                              <Color>=iif(First(Fields!missing.Value, "dsMissingIndexes")&gt;0
+	,"Blue"
+	,"Black"
+	)</Color>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox1</rd:DefaultName>
+                    <ActionInfo>
+                      <Actions>
+                        <Action>
+                          <Drillthrough>
+                            <ReportName>MissingIndexes</ReportName>
+                          </Drillthrough>
+                        </Action>
+                      </Actions>
+                    </ActionInfo>
+                    <Top>0.5382in</Top>
+                    <Left>2.24583in</Left>
+                    <Height>0.375in</Height>
+                    <Width>0.77852in</Width>
+                    <ZIndex>2</ZIndex>
+                    <ToolTip>="Objects and indexes missing:"
++chr(10)
++First(Fields!objs.Value, "dsMissingIndexes")</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>WhiteSmoke</BackgroundColor>
+                      <VerticalAlign>Middle</VerticalAlign>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="txtTraceFlags2">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Missing</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Indexes</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <Top>0.02431in</Top>
+                    <Left>2.24583in</Left>
+                    <Height>0.44445in</Height>
+                    <Width>0.77852in</Width>
+                    <ZIndex>3</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>Solid</Style>
+                      </Border>
+                      <TopBorder>
+                        <Style>None</Style>
+                      </TopBorder>
+                      <BottomBorder>
+                        <Color>Black</Color>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <LeftBorder>
+                        <Style>None</Style>
+                      </LeftBorder>
+                      <RightBorder>
+                        <Style>None</Style>
+                      </RightBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox36">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=CountRows("dsTraceFlags")</Value>
+                            <Style>
+                              <FontSize>14pt</FontSize>
+                              <Format>0;(0)</Format>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox1</rd:DefaultName>
+                    <Top>0.5382in</Top>
+                    <Left>1.34778in</Left>
+                    <Height>0.375in</Height>
+                    <Width>0.77852in</Width>
+                    <ZIndex>4</ZIndex>
+                    <ToolTip>Active trace flags</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>WhiteSmoke</BackgroundColor>
+                      <VerticalAlign>Middle</VerticalAlign>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="txtTraceFlags">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Trace </Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Flags</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <Top>0.02431in</Top>
+                    <Left>1.34778in</Left>
+                    <Height>0.44445in</Height>
+                    <Width>0.77852in</Width>
+                    <ZIndex>5</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>Solid</Style>
+                      </Border>
+                      <TopBorder>
+                        <Style>None</Style>
+                      </TopBorder>
+                      <BottomBorder>
+                        <Color>Black</Color>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <LeftBorder>
+                        <Style>None</Style>
+                      </LeftBorder>
+                      <RightBorder>
+                        <Style>None</Style>
+                      </RightBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                </ReportItems>
+                <KeepTogether>true</KeepTogether>
+                <Top>0.04405cm</Top>
+                <Left>27.45622cm</Left>
+                <Height>2.32839cm</Height>
+                <Width>7.68185cm</Width>
+                <ZIndex>21</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Rectangle>
             </ReportItems>
             <KeepTogether>true</KeepTogether>
             <Top>0.06819in</Top>
             <Left>0.01265in</Left>
-            <Height>2.12511in</Height>
-            <Width>16.13404in</Width>
+            <Height>1.96528in</Height>
+            <Width>16.8033in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -8519,7 +9149,7 @@ option (recompile)</CommandText>
         <Height>20.00815cm</Height>
         <Style />
       </Body>
-      <Width>41.85925cm</Width>
+      <Width>42.71252cm</Width>
       <Page>
         <PageHeight>50cm</PageHeight>
         <PageWidth>50cm</PageWidth>

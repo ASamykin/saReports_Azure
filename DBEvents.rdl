@@ -1206,34 +1206,42 @@ dateserial(
                           <ChartSeriesHierarchy>
                             <ChartMembers>
                               <ChartMember>
-                                <Label>storagealloc</Label>
+                                <Label>alloc</Label>
+                              </ChartMember>
+                              <ChartMember>
+                                <Label>used</Label>
                               </ChartMember>
                             </ChartMembers>
                           </ChartSeriesHierarchy>
                           <ChartData>
                             <ChartSeriesCollection>
-                              <ChartSeries Name="storagealloc">
+                              <ChartSeries Name="alloc">
                                 <ChartDataPoints>
                                   <ChartDataPoint>
                                     <ChartDataPointValues>
-                                      <Y>=Sum(Fields!storagealloc.Value)</Y>
+                                      <Y>=Sum(Fields!alloc.Value)</Y>
                                     </ChartDataPointValues>
                                     <ChartDataLabel>
                                       <Style />
                                     </ChartDataLabel>
-                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")+chr(10)+chr(10)
-+"Storage Used: "+cstr(round(Fields!storagealloc.Value,1))+"%"</ToolTip>
+                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")+chr(10)
++chr(10)
++"Storage Used %: "+cstr(round(Fields!storagealloc.Value,1))
++chr(10)
++"Used MB: "+cstr(Fields!used.Value)
++chr(10)
++"Allocated MB: "+cstr(Fields!alloc.Value)</ToolTip>
                                     <ActionInfo>
                                       <Actions>
                                         <Action>
                                           <Drillthrough>
                                             <ReportName>DBEvents</ReportName>
                                             <Parameters>
-                                              <Parameter Name="DBName">
-                                                <Value>=Parameters!DBName.Value</Value>
-                                              </Parameter>
                                               <Parameter Name="Date">
                                                 <Value>=Fields!end.Value</Value>
+                                              </Parameter>
+                                              <Parameter Name="DBName">
+                                                <Value>=Parameters!DBName.Value</Value>
                                               </Parameter>
                                             </Parameters>
                                           </Drillthrough>
@@ -1244,7 +1252,7 @@ dateserial(
                                       <Border>
                                         <Color>DimGray</Color>
                                       </Border>
-                                      <Color>LightGrey</Color>
+                                      <Color>Gainsboro</Color>
                                     </Style>
                                     <ChartMarker>
                                       <Style />
@@ -1253,6 +1261,63 @@ dateserial(
                                   </ChartDataPoint>
                                 </ChartDataPoints>
                                 <Type>Area</Type>
+                                <Style />
+                                <ChartEmptyPoints>
+                                  <Style />
+                                  <ChartMarker>
+                                    <Style />
+                                  </ChartMarker>
+                                  <ChartDataLabel>
+                                    <Style />
+                                  </ChartDataLabel>
+                                </ChartEmptyPoints>
+                                <ValueAxisName>Primary</ValueAxisName>
+                                <CategoryAxisName>Primary</CategoryAxisName>
+                                <ChartSmartLabel>
+                                  <CalloutLineColor>Black</CalloutLineColor>
+                                  <MinMovingDistance>0pt</MinMovingDistance>
+                                </ChartSmartLabel>
+                              </ChartSeries>
+                              <ChartSeries Name="used">
+                                <ChartDataPoints>
+                                  <ChartDataPoint>
+                                    <ChartDataPointValues>
+                                      <Y>=Sum(Fields!used.Value)</Y>
+                                    </ChartDataPointValues>
+                                    <ChartDataLabel>
+                                      <Style />
+                                    </ChartDataLabel>
+                                    <ActionInfo>
+                                      <Actions>
+                                        <Action>
+                                          <Drillthrough>
+                                            <ReportName>DBEvents</ReportName>
+                                            <Parameters>
+                                              <Parameter Name="Date">
+                                                <Value>=Fields!end.Value</Value>
+                                              </Parameter>
+                                              <Parameter Name="DBName">
+                                                <Value>=Parameters!DBName.Value</Value>
+                                              </Parameter>
+                                            </Parameters>
+                                          </Drillthrough>
+                                        </Action>
+                                      </Actions>
+                                    </ActionInfo>
+                                    <Style>
+                                      <Border>
+                                        <Color>DimGray</Color>
+                                      </Border>
+                                      <Color>DarkGray</Color>
+                                    </Style>
+                                    <ChartMarker>
+                                      <Style />
+                                    </ChartMarker>
+                                    <DataElementOutput>Output</DataElementOutput>
+                                  </ChartDataPoint>
+                                </ChartDataPoints>
+                                <Type>Area</Type>
+                                <Subtype>Stacked</Subtype>
                                 <Style />
                                 <ChartEmptyPoints>
                                   <Style />
@@ -1442,7 +1507,7 @@ dateserial(
                                   </ChartMinorTickMarks>
                                   <CrossAt>NaN</CrossAt>
                                   <Minimum>NaN</Minimum>
-                                  <Maximum>100</Maximum>
+                                  <Maximum>NaN</Maximum>
                                   <ChartAxisScaleBreak>
                                     <Style />
                                   </ChartAxisScaleBreak>
@@ -1881,30 +1946,82 @@ dateserial(
             <ChartSeriesHierarchy>
               <ChartMembers>
                 <ChartMember>
-                  <Label>storagealloc</Label>
+                  <Label>alloc</Label>
+                </ChartMember>
+                <ChartMember>
+                  <Label>used</Label>
                 </ChartMember>
               </ChartMembers>
             </ChartSeriesHierarchy>
             <ChartData>
               <ChartSeriesCollection>
-                <ChartSeries Name="storagealloc">
+                <ChartSeries Name="alloc">
                   <ChartDataPoints>
                     <ChartDataPoint>
                       <ChartDataPointValues>
-                        <Y>=Sum(Fields!storagealloc.Value)</Y>
+                        <Y>=Sum(Fields!alloc.Value)</Y>
                       </ChartDataPointValues>
                       <ChartDataLabel>
                         <Style />
                       </ChartDataLabel>
-                      <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")+chr(10)+chr(10)
-+"Used (%): "+cstr(round(Fields!storagealloc.Value,1))+chr(10)
-+"Used (MB): "+cstr(round(Fields!used.Value,1))+chr(10)
-+"Allocated (MB): "+cstr(round(Fields!alloc.Value,1))</ToolTip>
+                      <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")+chr(10)
++chr(10)
++"Used %: "+cstr(round(Fields!storagealloc.Value,1))
++chr(10)
++"Used MB: "+cstr(Fields!used.Value)
++chr(10)
++"Allocated MB: "+cstr(Fields!alloc.Value)</ToolTip>
                       <Style>
                         <Border>
                           <Color>DimGray</Color>
                         </Border>
-                        <Color>LightGrey</Color>
+                        <Color>Gainsboro</Color>
+                      </Style>
+                      <ChartMarker>
+                        <Style />
+                      </ChartMarker>
+                      <DataElementOutput>Output</DataElementOutput>
+                    </ChartDataPoint>
+                  </ChartDataPoints>
+                  <Type>Area</Type>
+                  <Style />
+                  <ChartEmptyPoints>
+                    <Style />
+                    <ChartMarker>
+                      <Style />
+                    </ChartMarker>
+                    <ChartDataLabel>
+                      <Style />
+                    </ChartDataLabel>
+                  </ChartEmptyPoints>
+                  <ValueAxisName>Primary</ValueAxisName>
+                  <CategoryAxisName>Primary</CategoryAxisName>
+                  <ChartSmartLabel>
+                    <CalloutLineColor>Black</CalloutLineColor>
+                    <MinMovingDistance>0pt</MinMovingDistance>
+                  </ChartSmartLabel>
+                </ChartSeries>
+                <ChartSeries Name="used">
+                  <ChartDataPoints>
+                    <ChartDataPoint>
+                      <ChartDataPointValues>
+                        <Y>=Sum(Fields!used.Value)</Y>
+                      </ChartDataPointValues>
+                      <ChartDataLabel>
+                        <Style />
+                      </ChartDataLabel>
+                      <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")+chr(10)
++chr(10)
++"Used %: "+cstr(round(Fields!storagealloc.Value,1))
++chr(10)
++"Used MB: "+cstr(Fields!used.Value)
++chr(10)
++"Allocated MB: "+cstr(Fields!alloc.Value)</ToolTip>
+                      <Style>
+                        <Border>
+                          <Color>DimGray</Color>
+                        </Border>
+                        <Color>DarkGray</Color>
                       </Style>
                       <ChartMarker>
                         <Style />
@@ -2059,6 +2176,7 @@ dateserial(
                         <Style>None</Style>
                       </Border>
                       <FontSize>8pt</FontSize>
+                      <Format>#,0,;(#,0,)</Format>
                       <Color>#5c5c5c</Color>
                     </Style>
                     <ChartAxisTitle>
@@ -2101,7 +2219,7 @@ dateserial(
                     </ChartMinorTickMarks>
                     <CrossAt>NaN</CrossAt>
                     <Minimum>NaN</Minimum>
-                    <Maximum>100</Maximum>
+                    <Maximum>NaN</Maximum>
                     <ChartAxisScaleBreak>
                       <Style />
                     </ChartAxisScaleBreak>
@@ -2170,7 +2288,7 @@ dateserial(
             </ChartAreas>
             <ChartTitles>
               <ChartTitle Name="Default">
-                <Caption>="Storage Used %  "+format(Parameters!Date.Value,"dd MMMM, dddd")</Caption>
+                <Caption>="Storage Used &amp; Allocated (GB)  "+format(Parameters!Date.Value,"dd MMMM, dddd")</Caption>
                 <Style>
                   <BackgroundColor>=iif(
 dateserial(

@@ -57,7 +57,13 @@ select
 	, ps.row_count
 
 	,max(stat.index_depth) [index_depth]
-	,max(stat.avg_fragmentation_in_percent) [avg_fragmentation]
+	--,max(stat.avg_fragmentation_in_percent) [avg_fragmentation]
+	,case 
+		when p.[data_compression_desc]='COLUMNSTORE' then 
+			(select avg(100*(ISNULL(deleted_rows,0))/total_rows) from sys.dm_db_column_store_row_group_physical_stats cs where cs.object_id=p.object_id and cs.index_id=i.index_id)
+		else max(stat.avg_fragmentation_in_percent)
+	end [avg_fragmentation]
+
 	,sum(stat.page_count) [used_page_count]
 
 	,STATS_DATE(p.object_id,i.index_id) [stats_updated]

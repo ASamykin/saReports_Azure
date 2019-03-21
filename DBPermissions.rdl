@@ -376,7 +376,7 @@ join sys.database_principals u on rm.member_principal_id=u.principal_id</Command
             <Top>0.96403in</Top>
             <Left>0.1in</Left>
             <Height>0.41667in</Height>
-            <Width>3.77083in</Width>
+            <Width>3.77084in</Width>
             <ZIndex>3</ZIndex>
             <Style>
               <Border>
@@ -405,6 +405,9 @@ join sys.database_principals u on rm.member_principal_id=u.principal_id</Command
                       <CellContents>
                         <Textbox Name="Textbox23">
                           <CanGrow>true</CanGrow>
+                          <UserSort>
+                            <SortExpression>=Fields!object.Value</SortExpression>
+                          </UserSort>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -435,12 +438,16 @@ join sys.database_principals u on rm.member_principal_id=u.principal_id</Command
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
                         <Textbox Name="Textbox25">
                           <CanGrow>true</CanGrow>
+                          <UserSort>
+                            <SortExpression>=Fields!permission.Value</SortExpression>
+                          </UserSort>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -477,6 +484,9 @@ join sys.database_principals u on rm.member_principal_id=u.principal_id</Command
                       <CellContents>
                         <Textbox Name="Textbox27">
                           <CanGrow>true</CanGrow>
+                          <UserSort>
+                            <SortExpression>=Fields!GrantedTo.Value</SortExpression>
+                          </UserSort>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
@@ -638,7 +648,7 @@ join sys.database_principals u on rm.member_principal_id=u.principal_id</Command
             <DataSetName>dsPermissions</DataSetName>
             <Top>2.44863cm</Top>
             <Left>10.97703cm</Left>
-            <Height>1.05833cm</Height>
+            <Height>1.05834cm</Height>
             <Width>19.72988cm</Width>
             <ZIndex>4</ZIndex>
             <Style>
@@ -648,10 +658,10 @@ join sys.database_principals u on rm.member_principal_id=u.principal_id</Command
             </Style>
           </Tablix>
         </ReportItems>
-        <Height>8.75771cm</Height>
+        <Height>4.25979cm</Height>
         <Style />
       </Body>
-      <Width>34.84562cm</Width>
+      <Width>31.14145cm</Width>
       <Page>
         <PageHeight>50cm</PageHeight>
         <PageWidth>21cm</PageWidth>
