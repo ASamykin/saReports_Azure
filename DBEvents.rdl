@@ -2892,7 +2892,7 @@ dateserial(
                             <Style />
                           </ChartDataLabel>
                           <ToolTip>="Date: " +format(Fields!end.Value, "dd MMM HH:mm")+chr(10)
-+"Value:"+cstr(Fields!MaxUsed.Value)
++"Value: "+cstr(Fields!MaxUsed.Value)
 +chr(10)+chr(10)
 +"CPU: "+cstr(Fields!Cpu.Value)+chr(10)
 +"Data I/O: "+cstr(Fields!DataIO.Value)+chr(10)

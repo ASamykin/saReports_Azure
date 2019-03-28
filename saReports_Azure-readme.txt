@@ -1,3 +1,25 @@
+[28 March 2019]
+* AzureDB_main :
+	- database options are sorted now
+
+* Azure_Master :
+	- new column "Operations" is added; it shows either amount of active operations for a db, or current progress % if it's only one operation + tooltip details.
+	- "Service Tier" cell is highlighted if there was a up- or downscale of it today. Tooltip text provides additional details.
+
+[27 March 2019]
+* AzureDB_main :
+	- added creation of ExtendedEvents session (stopped by default) to trace error messages sent to the client. Target is ring buffer, max size is 200MB.
+	- added start/stop function for a session
+	- added view content of a session's ring buffer  (new report XESessionBuffer)
+* XESession : 
+	- minor formatting changes
+* XESessionBuffer :  
+	- new report which shows content of ring buffer of an ExtendedEvent session
+
+[26 March 2019]
+* DBEvents :
+	- minor enhancements
+
 [21 March 2019]
 * Sessions :
 	- added system sessions if they block user's ones

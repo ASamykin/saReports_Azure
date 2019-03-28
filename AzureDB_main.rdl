@@ -643,12 +643,12 @@ select
 	,'Amended settings:'+char(10)
 		+STRING_AGG(case 
 					when is_value_default&lt;&gt;1 then ' - '+name+': '+convert(varchar(20),[value]) 
-					end ,char(10)) [changed]
+					end ,char(10)) WITHIN GROUP ( ORDER BY name) [changed]
 	,'Default settings:'+char(10)
 		+STRING_AGG(case 
 					when is_value_default=1 then ' - '+name+': '+convert(varchar(20),[value]) 
  
-					end ,char(10)) [default]
+					end ,char(10))  WITHIN GROUP ( ORDER BY name)  [default]
 from sys.database_scoped_configurations
 order by name
 option (recompile)</CommandText>
@@ -1097,7 +1097,46 @@ option (recompile)</CommandText>
     <DataSet Name="dsXESessions">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>with ev as 
+        <QueryParameters>
+          <QueryParameter Name="@action">
+            <Value>=Parameters!xEvent_Action.Value</Value>
+            <rd:UserDefined>true</rd:UserDefined>
+          </QueryParameter>
+          <QueryParameter Name="@name">
+            <Value>=Parameters!xEventsTrace.Value</Value>
+            <rd:UserDefined>true</rd:UserDefined>
+          </QueryParameter>
+        </QueryParameters>
+        <CommandText>/*  create xEvent trace session if it's not present*/
+
+declare @cmd varchar(512)
+set @cmd='CREATE EVENT SESSION [xEtrace_Errors] ON DATABASE 
+ADD EVENT sqlserver.error_reported(
+    ACTION(sqlserver.client_app_name,sqlserver.client_hostname,sqlserver.plan_handle,sqlserver.query_hash,sqlserver.session_id,sqlserver.sql_text,sqlserver.tsql_stack,sqlserver.username))
+ADD TARGET package0.ring_buffer(SET max_memory=(204800), max_events_limit = 50000)' 
+if not exists (select 1 from sys.database_event_sessions where name='xEtrace_Errors')
+	begin
+		exec (@cmd)
+set @cmd=''
+	end
+
+/*enable/disable xEvent trace session*/
+if @action in (0,1) and @name is not null  /*0 - stop, 1 - start*/
+   begin
+
+	select  @cmd=
+	 case 
+		 when (exists (select 1 from sys.dm_xe_database_sessions where name=@name) and @action=0) then 'ALTER EVENT SESSION '+@name+' ON DATABASE STATE = STOP'
+		 when (not exists (select 1 from sys.dm_xe_database_sessions where name=@name) and @action=1) then 'ALTER EVENT SESSION '+@name+' ON DATABASE STATE = START'
+		 else '-- do nothing' end
+
+        exec (@cmd)
+      set @cmd=''
+
+   end 
+
+
+;with ev as 
 (
 select 
 	event_session_id
@@ -4409,6 +4448,12 @@ option (recompile,maxdop 1)</CommandText>
                     <TablixColumn>
                       <Width>1.72736cm</Width>
                     </TablixColumn>
+                    <TablixColumn>
+                      <Width>1.04775cm</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>1.09771cm</Width>
+                    </TablixColumn>
                   </TablixColumns>
                   <TablixRows>
                     <TablixRow>
@@ -4729,6 +4774,96 @@ option (recompile,maxdop 1)</CommandText>
                             </Textbox>
                           </CellContents>
                         </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox80">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Action</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox80</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <TopBorder>
+                                  <Style>None</Style>
+                                </TopBorder>
+                                <LeftBorder>
+                                  <Style>None</Style>
+                                </LeftBorder>
+                                <RightBorder>
+                                  <Style>None</Style>
+                                </RightBorder>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox87">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Buffer</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox87</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <TopBorder>
+                                  <Style>None</Style>
+                                </TopBorder>
+                                <LeftBorder>
+                                  <Style>None</Style>
+                                </LeftBorder>
+                                <RightBorder>
+                                  <Style>None</Style>
+                                </RightBorder>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
                       </TablixCells>
                     </TablixRow>
                     <TablixRow>
@@ -4817,6 +4952,7 @@ option (recompile,maxdop 1)</CommandText>
                                   </Action>
                                 </Actions>
                               </ActionInfo>
+                              <ToolTip>View configuration details</ToolTip>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
@@ -4976,7 +5112,7 @@ option (recompile,maxdop 1)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>=Fields!duration.Value</Value>
+                                      <Value>=iif(isNothing(Fields!duration.Value)=true,"stopped",Fields!duration.Value)</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                       </Style>
@@ -4988,7 +5124,10 @@ option (recompile,maxdop 1)</CommandText>
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>duration</rd:DefaultName>
-                              <ToolTip>="Started  "+format(Fields!status.Value,"dd MMM HH:mm")</ToolTip>
+                              <ToolTip>=iif(isNothing(Fields!status.Value)=false
+	,"Started  "+format(Fields!status.Value,"dd MMM HH:mm")
+	,Nothing
+	)</ToolTip>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
@@ -5057,12 +5196,143 @@ option (recompile,maxdop 1)</CommandText>
                             </Textbox>
                           </CellContents>
                         </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox85">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=iif(isNothing(Fields!status.Value)=false,"Stop","Start")</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <TextDecoration>Underline</TextDecoration>
+                                        <Color>Blue</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox85</rd:DefaultName>
+                              <ActionInfo>
+                                <Actions>
+                                  <Action>
+                                    <Drillthrough>
+                                      <ReportName>AzureDB_main</ReportName>
+                                      <Parameters>
+                                        <Parameter Name="KeepHistory">
+                                          <Value>=Parameters!KeepHistory.Value</Value>
+                                        </Parameter>
+                                        <Parameter Name="xEventsTrace">
+                                          <Value>=Fields!name.Value</Value>
+                                        </Parameter>
+                                        <Parameter Name="xEvent_Action">
+                                          <Value>=iif(isNothing(Fields!status.Value)=false,0,1)</Value>
+                                        </Parameter>
+                                      </Parameters>
+                                    </Drillthrough>
+                                  </Action>
+                                </Actions>
+                              </ActionInfo>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <TopBorder>
+                                  <Style>None</Style>
+                                </TopBorder>
+                                <LeftBorder>
+                                  <Style>None</Style>
+                                </LeftBorder>
+                                <RightBorder>
+                                  <Style>None</Style>
+                                </RightBorder>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox88">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=iif(isNothing(Fields!duration.Value)=true
+	,Nothing
+	,iif(InStr(Fields!targets.Value,"ring_buffer")&gt;0, "View",Nothing)
+	)</Value>
+                                      <Style>
+                                        <FontSize>8pt</FontSize>
+                                        <FontWeight>Normal</FontWeight>
+                                        <TextDecoration>Underline</TextDecoration>
+                                        <Color>Blue</Color>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox88</rd:DefaultName>
+                              <ActionInfo>
+                                <Actions>
+                                  <Action>
+                                    <Drillthrough>
+                                      <ReportName>XESessionBuffer</ReportName>
+                                      <Parameters>
+                                        <Parameter Name="SessionName">
+                                          <Value>=Fields!name.Value</Value>
+                                        </Parameter>
+                                      </Parameters>
+                                    </Drillthrough>
+                                  </Action>
+                                </Actions>
+                              </ActionInfo>
+                              <ToolTip>View content of the buffer</ToolTip>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <TopBorder>
+                                  <Style>None</Style>
+                                </TopBorder>
+                                <LeftBorder>
+                                  <Style>None</Style>
+                                </LeftBorder>
+                                <RightBorder>
+                                  <Style>None</Style>
+                                </RightBorder>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
                       </TablixCells>
                     </TablixRow>
                   </TablixRows>
                 </TablixBody>
                 <TablixColumnHierarchy>
                   <TablixMembers>
+                    <TablixMember />
+                    <TablixMember />
                     <TablixMember />
                     <TablixMember />
                     <TablixMember />
@@ -5091,7 +5361,7 @@ option (recompile,maxdop 1)</CommandText>
                 <Top>3.60185cm</Top>
                 <Left>27.45621cm</Left>
                 <Height>0.69956cm</Height>
-                <Width>13.19218cm</Width>
+                <Width>15.33764cm</Width>
                 <ZIndex>17</ZIndex>
                 <Style>
                   <Border>
@@ -5668,7 +5938,7 @@ option (recompile,maxdop 1)</CommandText>
             <Top>0.06819in</Top>
             <Left>0.01265in</Left>
             <Height>1.96528in</Height>
-            <Width>16.8033in</Width>
+            <Width>17.46256in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -9149,7 +9419,7 @@ option (recompile,maxdop 1)</CommandText>
         <Height>20.00815cm</Height>
         <Style />
       </Body>
-      <Width>42.71252cm</Width>
+      <Width>44.38703cm</Width>
       <Page>
         <PageHeight>50cm</PageHeight>
         <PageWidth>50cm</PageWidth>
@@ -9172,6 +9442,23 @@ option (recompile,maxdop 1)</CommandText>
       </DefaultValue>
       <Prompt>Keep history of Resources in ##buffer table</Prompt>
     </ReportParameter>
+    <ReportParameter Name="xEventsTrace">
+      <DataType>String</DataType>
+      <Nullable>true</Nullable>
+      <Prompt>Name of ExtendendEvents trace to start/stop</Prompt>
+      <Hidden>true</Hidden>
+    </ReportParameter>
+    <ReportParameter Name="xEvent_Action">
+      <DataType>Integer</DataType>
+      <Nullable>true</Nullable>
+      <DefaultValue>
+        <Values>
+          <Value>-1</Value>
+        </Values>
+      </DefaultValue>
+      <Prompt>Stop/Start appropriate xEvent session</Prompt>
+      <Hidden>true</Hidden>
+    </ReportParameter>
   </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
@@ -9182,6 +9469,16 @@ option (recompile,maxdop 1)</CommandText>
           <ColumnIndex>0</ColumnIndex>
           <RowIndex>0</RowIndex>
           <ParameterName>KeepHistory</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>xEventsTrace</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>2</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>xEvent_Action</ParameterName>
         </CellDefinition>
       </CellDefinitions>
     </GridLayoutDefinition>
