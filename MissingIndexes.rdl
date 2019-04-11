@@ -426,6 +426,7 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox12</rd:DefaultName>
+                          <ToolTip>="Number of compilations and recompilations that would benefit from this missing index group. Compilations and recompilations of many different queries can contribute to this column value."</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -480,6 +481,7 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox14</rd:DefaultName>
+                          <ToolTip>Number of seeks caused by user queries that the recommended index in the group could have been used for.</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -533,6 +535,7 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox16</rd:DefaultName>
+                          <ToolTip>Number of scans caused by user queries that the recommended index in the group could have been used for.</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -586,6 +589,7 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox18</rd:DefaultName>
+                          <ToolTip>Date and time of last seek caused by user queries that the recommended index in the group could have been used for.</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -598,7 +602,6 @@ option (recompile)</CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -640,6 +643,7 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox20</rd:DefaultName>
+                          <ToolTip>Date and time of last scan caused by user queries that the recommended index in the group could have been used for.</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -652,6 +656,7 @@ option (recompile)</CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -693,6 +698,7 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox22</rd:DefaultName>
+                          <ToolTip>Average cost of the user queries that could be reduced by the index in the group.</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -746,6 +752,8 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox24</rd:DefaultName>
+                          <ToolTip>="Average percentage benefit that user queries could experience if this missing index group was implemented." +chr(10)
++"The value means that the query cost would on average drop by this percentage if this missing index group was implemented."</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>

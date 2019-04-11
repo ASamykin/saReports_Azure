@@ -24,7 +24,8 @@
 	, service_objective [service]
 	, elastic_pool_name [pool]
 	,(select top 1 dtu_limit from sys.dm_db_resource_stats order by end_time desc ) [dtu]
-from sys.database_service_objectives</CommandText>
+from sys.database_service_objectives
+option (recompile)</CommandText>
       </Query>
       <Fields>
         <Field Name="server">
@@ -294,7 +295,7 @@ option (recompile)</CommandText>
 	,count(1)/128. [MB] 
 from sys.dm_os_buffer_descriptors
 group by database_id 
-</CommandText>
+option (recompile, maxdop 1)</CommandText>
       </Query>
       <Fields>
         <Field Name="db">
@@ -536,7 +537,7 @@ WITH [Waits] AS
         )
     AND [waiting_tasks_count] &gt; 0
     )
-SELECT
+SELECT top 5
     MAX ([W1].[wait_type]) AS [WaitType],
     CAST (MAX ([W1].[WaitS]) AS DECIMAL (16,2)) AS [Wait_S],
     CAST (MAX ([W1].[ResourceS]) AS DECIMAL (16,2)) AS [Resource_S],
@@ -550,7 +551,7 @@ SELECT
 FROM [Waits] AS [W1]
 INNER JOIN [Waits] AS [W2] ON [W2].[RowNum] &lt;= [W1].[RowNum]
 GROUP BY [W1].[RowNum]
-HAVING SUM ([W2].[Percentage]) - MAX( [W1].[Percentage] ) &lt; 99 -- percentage threshold
+HAVING SUM ([W2].[Percentage]) - MAX( [W1].[Percentage] ) &lt; 98 -- percentage threshold
 option (recompile)</CommandText>
       </Query>
       <Fields>
@@ -682,11 +683,13 @@ SELECT
 	,es.login_name [login]
 	,es.program_name [application]
 	,isnull(case when es.host_name = '' then NULL else es.host_name end,dec.client_net_address)  [host]
-    ,SUBSTRING(st.text, er.statement_start_offset/2 + 1
-                        ,(CASE WHEN er.statement_end_offset = -1 
-                               THEN LEN(CONVERT(nvarchar(max),st.text))*2 
-                               ELSE er.statement_end_offset
-                          END - er.statement_start_offset)/2
+    ,substring(st.text
+				,er.statement_start_offset/2 + 1
+                ,(case 
+					when er.statement_end_offset = -1  then len(convert(nvarchar(max),st.text))*2 
+                    else er.statement_end_offset end
+                  - er.statement_start_offset
+				  )/2
                 ) [query]
      ,sum(tsu.user_objects_alloc_page_count - tsu.user_objects_dealloc_page_count) [OutStandingUserObjectsPages]
      ,sum(tsu.internal_objects_alloc_page_count - tsu.internal_objects_dealloc_page_count) [OutStandingInternalObjectsPages]
@@ -694,33 +697,35 @@ SELECT
 	 ,max(er.command) [command]
 	 ,avg(er.open_transaction_count) [opentran]
      ,max(er.cpu_time) [cpu]
-	 ,avg(er.total_elapsed_time) [elapsed]
+	 ,avg(convert(bigint,er.total_elapsed_time)) [elapsed]
 	 ,max(er.reads) [reads]
 	 ,max(er.writes) [writes]
      ,max(er.logical_reads) [logicalreads]
 	 ,max(er.granted_query_memory)/128. [GrantedQueryMemory]
-,convert(varchar(20),dateadd(ss,datediff(ss,min(er.start_time),getdate()),0),108) [running]
-FROM tempdb.sys.dm_db_task_space_usage tsu  
-JOIN sys.dm_exec_requests er 
-    ON tsu.session_id = er.session_id 
-   AND tsu.request_id = er.request_id  
-JOIN sys.dm_exec_sessions es 
-    ON tsu.session_id = es.session_id  
+	,case 
+		when datediff(ss,min(er.start_time),getdate())&gt;86400 then convert(varchar(20),datediff(dd,min(er.start_time),getdate()))+'d ' 
+		else '' end +
+	  convert(varchar(20),dateadd(ss,datediff(ss,min(er.start_time),getdate()),0),108) [running]
+from tempdb.sys.dm_db_task_space_usage tsu  
+join sys.dm_exec_requests er  on tsu.session_id = er.session_id  and tsu.request_id = er.request_id  
+join sys.dm_exec_sessions es  on tsu.session_id = es.session_id  
 join sys.dm_exec_connections dec on er.session_id=dec.session_id 
 CROSS APPLY sys.dm_exec_sql_text(er.sql_handle) st 
-WHERE (tsu.internal_objects_alloc_page_count 
-      +tsu.user_objects_alloc_page_count) &gt; 0 
-and tsu.session_id&lt;&gt;@@spid
+WHERE 
+	(tsu.internal_objects_alloc_page_count + tsu.user_objects_alloc_page_count) &gt; 0 
+	and tsu.session_id&lt;&gt;@@spid
 group by 
 	isnull(case when es.host_name = '' then NULL else es.host_name end,dec.client_net_address) 
 	,es.login_name
 	,es.program_name
-    ,SUBSTRING(st.text, er.statement_start_offset/2 + 1
-                        ,(CASE WHEN er.statement_end_offset = -1 
-                               THEN LEN(CONVERT(nvarchar(max),st.text))*2 
-                               ELSE er.statement_end_offset
-                          END - er.statement_start_offset)/2
-                )
+    ,substring(st.text
+				,er.statement_start_offset/2 + 1
+                ,(case 
+					when er.statement_end_offset = -1  then len(convert(nvarchar(max),st.text))*2 
+                    else er.statement_end_offset end
+                  - er.statement_start_offset
+				  )/2
+                ) 
 	,tsu.session_id 
 option (recompile)</CommandText>
       </Query>
@@ -1107,17 +1112,36 @@ option (recompile)</CommandText>
             <rd:UserDefined>true</rd:UserDefined>
           </QueryParameter>
         </QueryParameters>
-        <CommandText>/*  create xEvent trace session if it's not present*/
+        <CommandText>
+/*  create xEvent trace session if it's not present and exclude 2 messages*/
+/* Error 5701 : Changed database context to '%.*ls'.*/
+/* Error 5703 : Changed language setting to %.*ls.*/
 
 declare @cmd varchar(512)
 set @cmd='CREATE EVENT SESSION [xEtrace_Errors] ON DATABASE 
 ADD EVENT sqlserver.error_reported(
-    ACTION(sqlserver.client_app_name,sqlserver.client_hostname,sqlserver.plan_handle,sqlserver.query_hash,sqlserver.session_id,sqlserver.sql_text,sqlserver.tsql_stack,sqlserver.username))
-ADD TARGET package0.ring_buffer(SET max_memory=(204800), max_events_limit = 50000)' 
+    ACTION(sqlserver.client_app_name,sqlserver.client_hostname,sqlserver.plan_handle,sqlserver.query_hash,sqlserver.session_id,sqlserver.sql_text,sqlserver.tsql_stack,sqlserver.username)
+ WHERE 
+		([error_number]&lt;&gt;5701)
+		AND ([error_number]&lt;&gt;5703)
+)
+ADD TARGET package0.ring_buffer(SET max_memory=(204800), max_events_limit = 0)' 
 if not exists (select 1 from sys.database_event_sessions where name='xEtrace_Errors')
 	begin
 		exec (@cmd)
-set @cmd=''
+		set @cmd=''
+	end
+
+set @cmd = 'CREATE EVENT SESSION [xEtrace_Blocked] ON DATABASE 
+ADD EVENT sqlserver.blocked_process_report(
+    ACTION(sqlserver.client_app_name,sqlserver.client_hostname,sqlserver.session_id,sqlserver.sql_text,sqlserver.tsql_stack,sqlserver.username))
+ADD TARGET package0.ring_buffer(SET max_events_limit=(0),max_memory=(512000))
+WITH (STARTUP_STATE=OFF)'
+
+if not exists (select 1 from sys.database_event_sessions where name='xEtrace_Blocked')
+	begin
+		exec (@cmd)
+		set @cmd=''
 	end
 
 /*enable/disable xEvent trace session*/

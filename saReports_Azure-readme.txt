@@ -1,3 +1,43 @@
+[11 April 2019]
+* ColumnstoreStats : 
+	- minor formatting changes
+* DBObjectSizes :
+	- minor formatting changes
+
+[10 April 2019]
+* ColumnstoreStats : new report created to show columnstore rowgroups info
+* DBObjectSizes :
+	- added link to ColumnstoreStats report
+
+[09 April 2019]
+* XESessionBuffer : 
+	- added number of rows and number of pages
+* DBObjectSizes :
+	- Table type column is added (heap/clustered/clustered columnstore)
+
+[08 April 2019]
+* Sessions :
+	- "logical reads", "Dop" columns are added.
+* MissingIndexes :
+	- Tooltip notes are added to clarify column meanings.
+
+[04 April 2019]
+* DBPermissions :
+	- redesigned "role membership" part
+	- added filters and highlighting
+	- minor enhancements
+
+[02 April 2019]
+* Sessions :
+	- amended sql query to show actual resources consumed by active sessions
+
+[01 April 2019]
+* AzureDB_main :
+	- fixed issue with long running queries (int overflow)
+	- amended definition of ExtendedEvents session "" and filtered out 2 types of messages ("Changed database context to '%.*ls'.", "Changed language setting to %.*ls.")
+* XESessionBuffer :
+	- added counter of records
+
 [28 March 2019]
 * AzureDB_main :
 	- database options are sorted now

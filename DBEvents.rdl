@@ -2176,7 +2176,7 @@ dateserial(
                         <Style>None</Style>
                       </Border>
                       <FontSize>8pt</FontSize>
-                      <Format>#,0,;(#,0,)</Format>
+                      <Format>#,0;(#,0)</Format>
                       <Color>#5c5c5c</Color>
                     </Style>
                     <ChartAxisTitle>
@@ -2218,7 +2218,7 @@ dateserial(
                       <Length>0.5</Length>
                     </ChartMinorTickMarks>
                     <CrossAt>NaN</CrossAt>
-                    <Minimum>NaN</Minimum>
+                    <Minimum>0</Minimum>
                     <Maximum>NaN</Maximum>
                     <ChartAxisScaleBreak>
                       <Style />
