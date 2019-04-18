@@ -76,10 +76,13 @@ left join sys.resource_governor_workload_groups wg on des.group_id=wg.group_id
 outer APPLY sys.dm_exec_sql_text(der.sql_handle) st
 outer APPLY sys.dm_exec_sql_text(con.most_recent_sql_handle) st2 
 outer APPLY sys.dm_exec_query_plan(der.plan_handle) qp
-
-where des.is_user_process=1
-or 
-des.session_id in (select blocking_session_id from sys.dm_exec_requests)
+where 
+(
+	des.is_user_process=1
+	or 
+	des.session_id in (select blocking_session_id from sys.dm_exec_requests)
+)
+	and des.database_id=db_id()
 order by des.status, des.session_id
 option (recompile)</CommandText>
       </Query>
@@ -941,7 +944,6 @@ option (recompile)</CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>

@@ -1,3 +1,11 @@
+[18 April 2019]
+* AzureDB_main :
+	- amended query which collects db information; tempdb now has "Data Used (MB)" values
+
+[15 April 2019]
+* Sessions :
+	- amended connection dataset (scope is limited to the current database only)
+
 [11 April 2019]
 * ColumnstoreStats : 
 	- minor formatting changes

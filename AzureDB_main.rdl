@@ -175,42 +175,86 @@ option (recompile)</CommandText>
     <DataSet Name="dsDBInfo">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>with dbs as 
-	(select 'tempdb' [db] union all
-	 select physical_database_name from sys.databases )
-,data as (
+        <CommandText>with 
+	temp as 
+	(
+		select 
+			(
+			select 
+				cntr_value/1024 [cntr_value]
+			from sys.dm_os_performance_counters
+			where 
+				(object_name like '%Databases%' and counter_name like 'Data File(s) Size (KB)%')
+			and instance_name='tempdb'
+			) 
+		[FileSizeKB],
+			(
+			select 
+				cntr_value/1024 [cntr_value]
+			from sys.dm_os_performance_counters
+			where 
+				([object_name] like '%Transactions%' and counter_name like 'Free Space in tempdb (KB)%')
+			) 
+		[FreeSpaceKB]
+	),
+	data as 
+	(
+
+		select 
+			--case when rtrim(instance_name)&lt;&gt;'tempdb' then db_name() else instance_name end [db]
+			instance_name [db]
+			,replace(replace(rtrim(counter_name),'File(s) Size (KB)','Size (MB)'),'File(s) Used Size (KB)','Used (MB)') [counter_name]
+			,cntr_value/1024 [cntr_value]
+		from sys.dm_os_performance_counters
+		where 
+			(object_name like '%Databases%' and counter_name like '%File(s)%Size%')
+
+		union all 
+
+		select 
+			--case when rtrim(instance_name)&lt;&gt;'tempdb' then db_name() else instance_name end [db]
+			'tempdb' [db]
+			,'Data Used (MB)'
+			, [FileSizeKB]-[FreeSpaceKB] 
+		from temp
+
+		union all
+
+		select 
+			db_name()
+			,'Data Used (MB)'
+ 			,sum(CAST(FILEPROPERTY(name, 'SpaceUsed') AS bigint)  / 128)  [UsedMB]
+		FROM sys.database_files
+		where type=0 /*ROWS*/
+
+		union all 
+
+		select 
+			case when database_id=4 then 'msdb' else db_name(database_id) end [DB]
+			,'Total Files'
+			,count(1) [files]
+		FROM sys.dm_io_virtual_file_stats(NULL, NULL)
+		--where db_name(database_id) in ('tempdb',db_name())
+		group by database_id
+	)
+	,db as 
+	(
+	select distinct 
+		db_name() [db]
+		,left(physical_name,charindex('.',physical_name)-1) [real]
+	from sys.database_files 
+	)
 select 
-	case when rtrim(instance_name)&lt;&gt;'tempdb' then db_name() else instance_name end [db]
-	,counter_name
-	,cntr_value/1024 [cntr_value]
-from sys.dm_os_performance_counters
-where OBJECT_NAME like '%Databases%'
-and counter_name like '%File(s)%Size%'
-and instance_name in (select db from dbs)
-
-union all
-
-select 
-	db_name()
-	,'Data File(s) Used Size (KB)'
- 	,sum(CAST(FILEPROPERTY(name, 'SpaceUsed') AS bigint)  / 128)  [UsedMB]
-FROM sys.database_files
-where type=0 /*ROWS*/
-
-union all 
-
-select case when database_id=4 then 'msdb' else db_name(database_id) end [DB]
-	,'Total Files'
-	,count(1) [files]
-FROM sys.dm_io_virtual_file_stats(NULL, NULL)
-where db_name(database_id) in ('tempdb',db_name())
-group by database_id
-)
-select 
-	rtrim(ltrim(db)) [db]
-	,rtrim(replace(counter_name,' Size (KB)',' (MB)')) [counter]
-	,cntr_value [value]
-from data 
+	 
+	isnull(db.db,rtrim(ltrim(d.db))) [db]
+	,replace(d.counter_name,' (MB)',char(10)+'(MB)') [counter]
+	,d.cntr_value [value]
+from data d
+left join db on d.db=db.real
+where 
+isnull(db.db,rtrim(ltrim(d.db))) in (db_name(),'tempdb')
+--isnull(db.db,rtrim(ltrim(d.db)))&lt;&gt;'_Total'
+order by 1
 
 option (recompile)</CommandText>
       </Query>
@@ -8660,7 +8704,7 @@ option (recompile,maxdop 1)</CommandText>
                 <TablixBody>
                   <TablixColumns>
                     <TablixColumn>
-                      <Width>1.36458in</Width>
+                      <Width>1.07291in</Width>
                     </TablixColumn>
                   </TablixColumns>
                   <TablixRows>
@@ -8786,7 +8830,7 @@ option (recompile,maxdop 1)</CommandText>
                         </SortExpression>
                       </SortExpressions>
                       <TablixHeader>
-                        <Size>1.21875in</Size>
+                        <Size>1.74013in</Size>
                         <CellContents>
                           <Textbox Name="db">
                             <CanGrow>true</CanGrow>
@@ -8846,7 +8890,7 @@ option (recompile,maxdop 1)</CommandText>
                 <Top>0.06525in</Top>
                 <Left>0.0689in</Left>
                 <Height>0.44792in</Height>
-                <Width>2.58333in</Width>
+                <Width>2.81304in</Width>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -9087,8 +9131,8 @@ option (recompile,maxdop 1)</CommandText>
                   </TablixMembers>
                 </TablixRowHierarchy>
                 <DataSetName>dsBackups</DataSetName>
-                <Top>0.06525in</Top>
-                <Left>2.65223in</Left>
+                <Top>0.06432in</Top>
+                <Left>2.88889in</Left>
                 <Height>0.44792in</Height>
                 <Width>2.57341in</Width>
                 <ZIndex>1</ZIndex>
@@ -9415,8 +9459,8 @@ option (recompile,maxdop 1)</CommandText>
                   </TablixMembers>
                 </TablixRowHierarchy>
                 <DataSetName>dsUsers</DataSetName>
-                <Top>0.14111cm</Top>
-                <Left>14.36747cm</Left>
+                <Top>0.13874cm</Top>
+                <Left>15.76233cm</Left>
                 <Height>1.38546cm</Height>
                 <Width>5.72496cm</Width>
                 <ZIndex>2</ZIndex>
@@ -9430,8 +9474,8 @@ option (recompile,maxdop 1)</CommandText>
             <KeepTogether>true</KeepTogether>
             <Top>15.90947cm</Top>
             <Left>0.03213cm</Left>
-            <Height>1.52658cm</Height>
-            <Width>20.60097cm</Width>
+            <Height>1.5733cm</Height>
+            <Width>26.26614cm</Width>
             <ZIndex>3</ZIndex>
             <Style>
               <Border>
