@@ -1,3 +1,11 @@
+[26 April 2019]
+* Azure_Master :
+	- new column "Deadlocks" is added with conditional highlighting
+
+[25 April 2019]
+* Azure_Master :
+	- fixed one of datasources (scope) 
+
 [18 April 2019]
 * AzureDB_main :
 	- amended query which collects db information; tempdb now has "Data Used (MB)" values
