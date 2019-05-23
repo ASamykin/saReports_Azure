@@ -315,7 +315,6 @@ getdate() [time]</CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -1239,7 +1238,7 @@ getdate() [time]</CommandText>
             </Style>
           </Tablix>
         </ReportItems>
-        <Height>1.44791in</Height>
+        <Height>0.72916in</Height>
         <Style />
       </Body>
       <Width>14.29166in</Width>

@@ -1858,7 +1858,7 @@ option (recompile)</CommandText>
         <Height>4.28625cm</Height>
         <Style />
       </Body>
-      <Width>43.37812cm</Width>
+      <Width>42.02875cm</Width>
       <Page>
         <PageHeight>21cm</PageHeight>
         <PageWidth>29.7cm</PageWidth>
@@ -1874,7 +1874,7 @@ option (recompile)</CommandText>
   <ReportParameters>
     <ReportParameter Name="Table">
       <DataType>String</DataType>
-      <Prompt>Table name</Prompt>
+      <Prompt>Table name (schema.table)</Prompt>
       <Hidden>true</Hidden>
     </ReportParameter>
   </ReportParameters>

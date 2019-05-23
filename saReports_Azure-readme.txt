@@ -1,3 +1,68 @@
+[23-05-2019]
+* Azure_Master :
+	- minor formatting changes
+
+* AzureDB_main :
+	- offline cpus are moved to tooltip text of online cpus
+	- target RAM is now visible
+	- fixed Automatic tuning section (bugs with lookup)
+
+* AutomaticTuning : work in progress.
+
+[22-05-2019]
+* Sessions :
+	- minor formatting changes
+
+* BufferObjects :
+	- added column "Overall Fragmentation" and the link to "Fragmentation" report.
+	- added link to "AutomaticTuning" report
+
+* FirewallSettings :
+	- added column "# IPs" which shows amount of IP addresses between Start and End IPs
+
+* AutomaticTuning : new report is created to show automatic tuning settings and current status of autotuning efforts.
+
+
+[21-05-2019]
+* Azure_Master :
+	- added "Logins and users"
+	- added "Firewall settings" and link to the report
+
+* FirewallSettings : new report is created to show firewall settings on server and database level
+
+[20-05-2019]
+* PricingTier :
+	- minor design and source query changes
+
+* DBPermission :
+	- minor design changes
+
+* BufferObjects :
+	- added three columns "Fragmented", "Clean" & "Dirty"
+	- minor formatting changes
+
+[16-05-2019]
+* Azure_Master : 
+	- grouping by pools has been introduced
+	- minor query changes
+
+[15-05-2019]
+* AzureDB_main :
+	- added instance workload information (third graph)
+
+[13 May 2019]
+* PricingTier :
+	- minor enhancements
+
+[09 May 2019]
+* PricingTier : new report has been created to show changes in pricing tier.
+* Azure_Master : 
+	- added a link to PricingTier report
+
+[08 May 2019]
+* Azure_Master : 
+	- built-in query optimization
+
 [26 April 2019]
 * Azure_Master :
 	- new column "Deadlocks" is added with conditional highlighting

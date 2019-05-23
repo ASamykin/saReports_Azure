@@ -1768,7 +1768,7 @@ dateserial(
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>History of Workload &amp; Storage consumption</Value>
+                    <Value>Workload &amp; Storage consumption</Value>
                     <Style>
                       <FontSize>12pt</FontSize>
                       <FontWeight>Bold</FontWeight>
