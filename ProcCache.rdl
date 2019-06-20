@@ -511,7 +511,7 @@ option (recompile, maxdop 1)</CommandText>
               <Paragraph>
                 <TextRuns>
                   <TextRun>
-                    <Value>=First(Fields!time.Value, "dsCurrent")</Value>
+                    <Value>=format(First(Fields!time.Value, "dsCurrent"),"dd MMM HH:mm"</Value>
                     <Style>
                       <FontSize>12pt</FontSize>
                       <FontWeight>Bold</FontWeight>
@@ -534,7 +534,7 @@ option (recompile, maxdop 1)</CommandText>
               <Border>
                 <Style>None</Style>
               </Border>
-              <BackgroundColor>Yellow</BackgroundColor>
+              <BackgroundColor>Khaki</BackgroundColor>
               <PaddingLeft>2pt</PaddingLeft>
               <PaddingRight>2pt</PaddingRight>
               <PaddingTop>2pt</PaddingTop>

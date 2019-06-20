@@ -143,12 +143,15 @@ option (recompile);</CommandText>
                   <Width>1.1405in</Width>
                 </TablixColumn>
                 <TablixColumn>
-                  <Width>1.40267in</Width>
+                  <Width>1.02767in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>0.98425in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
                 <TablixRow>
-                  <Height>0.25in</Height>
+                  <Height>0.22917in</Height>
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
@@ -161,6 +164,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>N</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -199,6 +203,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Schema</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -237,6 +242,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Object</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -275,6 +281,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Index ID</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -313,6 +320,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Index Name</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -351,6 +359,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Size </Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -364,6 +373,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>(MB)</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -402,6 +412,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Free Space </Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -415,6 +426,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>(MB)</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -443,13 +455,31 @@ option (recompile);</CommandText>
                       <CellContents>
                         <Textbox Name="Textbox7">
                           <CanGrow>true</CanGrow>
+                          <UserSort>
+                            <SortExpression>=Fields!FreeMB.Value/Fields!MB.Value</SortExpression>
+                          </UserSort>
                           <KeepTogether>true</KeepTogether>
                           <Paragraphs>
                             <Paragraph>
                               <TextRuns>
                                 <TextRun>
-                                  <Value>Fragmented</Value>
+                                  <Value>Free Space</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>%</Value>
+                                  <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -460,7 +490,6 @@ option (recompile);</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox7</rd:DefaultName>
-                          <ToolTip>Fragmentation of the data/index pages in Buffer cache.</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -486,6 +515,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Clean</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -499,6 +529,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>(MB)</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -534,6 +565,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Dirty</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -547,6 +579,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>(MB)</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -582,6 +615,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Overall</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -595,6 +629,7 @@ option (recompile);</CommandText>
                                 <TextRun>
                                   <Value>Fragmentation</Value>
                                   <Style>
+                                    <FontSize>9pt</FontSize>
                                     <FontWeight>Bold</FontWeight>
                                   </Style>
                                 </TextRun>
@@ -605,6 +640,42 @@ option (recompile);</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox13</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <BackgroundColor>WhiteSmoke</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox17">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Index Usage</Value>
+                                  <Style>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox17</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -1314,12 +1385,64 @@ option (recompile);</CommandText>
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox18">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>View</Value>
+                                  <Style>
+                                    <FontSize>9pt</FontSize>
+                                    <TextDecoration>Underline</TextDecoration>
+                                    <Color>Blue</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox18</rd:DefaultName>
+                          <ActionInfo>
+                            <Actions>
+                              <Action>
+                                <Drillthrough>
+                                  <ReportName>IndexUsage</ReportName>
+                                  <Parameters>
+                                    <Parameter Name="Table">
+                                      <Value>="["+Fields!Schema.Value+"].["+Fields!Object.Value+"]"</Value>
+                                    </Parameter>
+                                  </Parameters>
+                                </Drillthrough>
+                              </Action>
+                            </Actions>
+                          </ActionInfo>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                        <rd:Selected>true</rd:Selected>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
               </TablixRows>
             </TablixBody>
             <TablixColumnHierarchy>
               <TablixMembers>
+                <TablixMember />
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -1352,8 +1475,8 @@ option (recompile);</CommandText>
             <DataSetName>dsCacheObjects</DataSetName>
             <Top>0.06944in</Top>
             <Left>0.08208in</Left>
-            <Height>0.4375in</Height>
-            <Width>14.11584in</Width>
+            <Height>0.41667in</Height>
+            <Width>14.72509in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1364,7 +1487,7 @@ option (recompile);</CommandText>
         <Height>2.08702cm</Height>
         <Style />
       </Body>
-      <Width>36.40667cm</Width>
+      <Width>37.83542cm</Width>
       <Page>
         <PageHeader>
           <Height>2.14312cm</Height>
@@ -1378,7 +1501,7 @@ option (recompile);</CommandText>
                 <Paragraph>
                   <TextRuns>
                     <TextRun>
-                      <Value>Database Objects in Buffer Cache</Value>
+                      <Value>Buffer Cache Content</Value>
                       <Style>
                         <FontSize>12pt</FontSize>
                         <FontWeight>Bold</FontWeight>
@@ -1392,15 +1515,16 @@ option (recompile);</CommandText>
                 </Paragraph>
               </Paragraphs>
               <rd:DefaultName>Textbox1</rd:DefaultName>
-              <Top>0.52791in</Top>
+              <Top>0.48611in</Top>
               <Left>0.08208in</Left>
-              <Height>0.25in</Height>
+              <Height>0.30208in</Height>
               <Width>3.1875in</Width>
               <Style>
                 <Border>
                   <Style>None</Style>
                 </Border>
                 <BackgroundColor>Khaki</BackgroundColor>
+                <VerticalAlign>Middle</VerticalAlign>
                 <PaddingLeft>2pt</PaddingLeft>
                 <PaddingRight>2pt</PaddingRight>
                 <PaddingTop>2pt</PaddingTop>

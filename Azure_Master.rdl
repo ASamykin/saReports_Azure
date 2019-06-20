@@ -527,6 +527,28 @@ from data
         </Field>
       </Fields>
     </DataSet>
+    <DataSet Name="dsNewDBs">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>select name, create_date 
+from sys.databases 
+where name not in 
+(
+select database_name from sys.resource_stats
+)
+and database_id&gt;4</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="name">
+          <DataField>name</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="create_date">
+          <DataField>create_date</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
   </DataSets>
   <ReportSections>
     <ReportSection>
@@ -1171,9 +1193,9 @@ from data
                                     <ChartDataLabel>
                                       <Style />
                                     </ChartDataLabel>
-                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM yyyy HH:mm, dddd")
+                                    <ToolTip>="Date:  "+format(Fields!end.Value,"dd MMM HH:mm")
 +chr(10)
-+"CPU: "+cstr(Fields!CPU.Value)</ToolTip>
++"CPU: "+cstr(round(Fields!CPU.Value,0))+"%"</ToolTip>
                                     <Style>
                                       <Color>=iif(Fields!CPU.Value&gt;80
 	,"Tomato"
@@ -1465,6 +1487,7 @@ from data
                           </ChartNoDataMessage>
                           <rd:DesignerMode>Sparkline</rd:DesignerMode>
                           <DataSetName>dsResources</DataSetName>
+                          <ToolTip>CPU Usage</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -1477,7 +1500,6 @@ from data
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
                         </Chart>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -1526,6 +1548,8 @@ from data
                                     <ChartDataLabel>
                                       <Style />
                                     </ChartDataLabel>
+                                    <ToolTip>="Date:  "+format(Fields!end.Value,"dd MMM HH:mm")+chr(10)
++"Data I/O: "+cstr(round(Fields!DataIO.Value,0))+"%"</ToolTip>
                                     <Style />
                                     <ChartMarker>
                                       <Style />
@@ -1534,7 +1558,6 @@ from data
                                   </ChartDataPoint>
                                 </ChartDataPoints>
                                 <Type>Line</Type>
-                                <Subtype>Stepped</Subtype>
                                 <Style />
                                 <ChartEmptyPoints>
                                   <Style />
@@ -1561,6 +1584,8 @@ from data
                                     <ChartDataLabel>
                                       <Style />
                                     </ChartDataLabel>
+                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")+chr(10)
++"Log Writes: "+cstr(round(Fields!LogWr.Value,0))+"%"</ToolTip>
                                     <Style />
                                     <ChartMarker>
                                       <Style />
@@ -1569,7 +1594,6 @@ from data
                                   </ChartDataPoint>
                                 </ChartDataPoints>
                                 <Type>Line</Type>
-                                <Subtype>Stepped</Subtype>
                                 <Style />
                                 <ChartEmptyPoints>
                                   <Style />
@@ -1848,6 +1872,7 @@ from data
                           </ChartNoDataMessage>
                           <rd:DesignerMode>Sparkline</rd:DesignerMode>
                           <DataSetName>dsResources</DataSetName>
+                          <ToolTip>Data I/O &amp; Log Writes</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -1905,7 +1930,7 @@ from data
                                     <ChartDataLabel>
                                       <Style />
                                     </ChartDataLabel>
-                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM yyyy HH:mm, dddd")
+                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")
 +chr(10)
 +"Used: "+cstr(Fields!storageMB.Value)+" (MB)"</ToolTip>
                                     <Style>
@@ -1945,7 +1970,7 @@ from data
                                     <ChartDataLabel>
                                       <Style />
                                     </ChartDataLabel>
-                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM yyyy HH:mm, dddd")
+                                    <ToolTip>="Date: "+format(Fields!end.Value,"dd MMM HH:mm")
 +chr(10)
 +"Allocated: "+cstr(Fields!storageMBalloc.Value)+" (MB)"</ToolTip>
                                     <Style>
@@ -2235,6 +2260,7 @@ from data
                           </ChartNoDataMessage>
                           <rd:DesignerMode>Sparkline</rd:DesignerMode>
                           <DataSetName>dsResources</DataSetName>
+                          <ToolTip>Space Usage</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -2343,6 +2369,8 @@ from data
 	)</Value>
                                 <Style>
                                   <FontSize>9pt</FontSize>
+                                  <TextDecoration>Underline</TextDecoration>
+                                  <Color>Blue</Color>
                                 </Style>
                               </TextRun>
                             </TextRuns>
@@ -2352,6 +2380,20 @@ from data
                           </Paragraph>
                         </Paragraphs>
                         <rd:DefaultName>pool1</rd:DefaultName>
+                        <ActionInfo>
+                          <Actions>
+                            <Action>
+                              <Drillthrough>
+                                <ReportName>ElasticPool</ReportName>
+                                <Parameters>
+                                  <Parameter Name="PoolName">
+                                    <Value>=Fields!pool.Value</Value>
+                                  </Parameter>
+                                </Parameters>
+                              </Drillthrough>
+                            </Action>
+                          </Actions>
+                        </ActionInfo>
                         <Style>
                           <Border>
                             <Color>LightGrey</Color>
@@ -3053,7 +3095,7 @@ from data
             <FixedColumnHeaders>true</FixedColumnHeaders>
             <KeepTogether>true</KeepTogether>
             <DataSetName>dsResources</DataSetName>
-            <Top>0.11334in</Top>
+            <Top>0.84667in</Top>
             <Left>0.13416in</Left>
             <Height>1.10417in</Height>
             <Width>18.02901in</Width>
@@ -3063,8 +3105,321 @@ from data
               </Border>
             </Style>
           </Tablix>
+          <Rectangle Name="Rectangle1">
+            <ReportItems>
+              <Tablix Name="Tablix1">
+                <TablixBody>
+                  <TablixColumns>
+                    <TablixColumn>
+                      <Width>0.99187cm</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>4.87806cm</Width>
+                    </TablixColumn>
+                    <TablixColumn>
+                      <Width>2.87042cm</Width>
+                    </TablixColumn>
+                  </TablixColumns>
+                  <TablixRows>
+                    <TablixRow>
+                      <Height>0.6cm</Height>
+                      <TablixCells>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox15">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>N</Value>
+                                      <Style>
+                                        <FontSize>9pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox15</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox17">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Database</Value>
+                                      <Style>
+                                        <FontSize>9pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox17</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox20">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Created</Value>
+                                      <Style>
+                                        <FontSize>9pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox20</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <BackgroundColor>WhiteSmoke</BackgroundColor>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                      </TablixCells>
+                    </TablixRow>
+                    <TablixRow>
+                      <Height>0.6cm</Height>
+                      <TablixCells>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="Textbox16">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=RowNumber(Nothing)</Value>
+                                      <Style>
+                                        <FontSize>9pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>Textbox16</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="name">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Fields!name.Value</Value>
+                                      <Style>
+                                        <FontSize>9pt</FontSize>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style />
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>name</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                        <TablixCell>
+                          <CellContents>
+                            <Textbox Name="create_date">
+                              <CanGrow>true</CanGrow>
+                              <KeepTogether>true</KeepTogether>
+                              <Paragraphs>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>=Fields!create_date.Value</Value>
+                                      <Style>
+                                        <FontSize>9pt</FontSize>
+                                        <Format>dd MMM HH:mm </Format>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                              </Paragraphs>
+                              <rd:DefaultName>create_date</rd:DefaultName>
+                              <Style>
+                                <Border>
+                                  <Color>LightGrey</Color>
+                                  <Style>Solid</Style>
+                                </Border>
+                                <PaddingLeft>2pt</PaddingLeft>
+                                <PaddingRight>2pt</PaddingRight>
+                                <PaddingTop>2pt</PaddingTop>
+                                <PaddingBottom>2pt</PaddingBottom>
+                              </Style>
+                            </Textbox>
+                          </CellContents>
+                        </TablixCell>
+                      </TablixCells>
+                    </TablixRow>
+                  </TablixRows>
+                </TablixBody>
+                <TablixColumnHierarchy>
+                  <TablixMembers>
+                    <TablixMember />
+                    <TablixMember />
+                    <TablixMember />
+                  </TablixMembers>
+                </TablixColumnHierarchy>
+                <TablixRowHierarchy>
+                  <TablixMembers>
+                    <TablixMember>
+                      <KeepWithGroup>After</KeepWithGroup>
+                    </TablixMember>
+                    <TablixMember>
+                      <Group Name="Details" />
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixRowHierarchy>
+                <DataSetName>dsNewDBs</DataSetName>
+                <Top>0.71929cm</Top>
+                <Left>0.39623cm</Left>
+                <Height>1.2cm</Height>
+                <Width>8.74035cm</Width>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Tablix>
+              <Textbox Name="Textbox23">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>The following databases were created recently (&lt;5min ago) and don't have performance stats yet.</Value>
+                        <Style>
+                          <Color>Brown</Color>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox23</rd:DefaultName>
+                <Top>0.04874cm</Top>
+                <Left>0.39623cm</Left>
+                <Height>0.6cm</Height>
+                <Width>15.14708cm</Width>
+                <ZIndex>1</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
+            </ReportItems>
+            <KeepTogether>true</KeepTogether>
+            <Top>0.05487cm</Top>
+            <Left>0cm</Left>
+            <Height>1.91929cm</Height>
+            <Width>36.22085cm</Width>
+            <ZIndex>1</ZIndex>
+            <Visibility>
+              <Hidden>=iif(CountRows("dsNewDBs")&gt;0,false,true)</Hidden>
+            </Visibility>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Rectangle>
         </ReportItems>
-        <Height>3.93914cm</Height>
+        <Height>5.51077cm</Height>
         <Style />
       </Body>
       <Width>47.41739cm</Width>

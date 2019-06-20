@@ -1,3 +1,58 @@
+
+[20-06-2019]
+* StatsHistogram : new report created to show statistics histogram
+* ObjectStats : added link to "StatsHistogram" report
+* MissingIndexes : misc formatting enhancements
+* AzureDB_main : misc formatting enhancements
+
+[18-06-2019]
+* AzureDB_main :
+	- Firewall link is now grey if there are no database level firewall rules
+* AutomaticTuning :
+	- addded support of "DBParameterization" recommendations
+	- misc formatting enhancements
+
+[17-06-2019] 
+* IndexUsage :	new report created to show usage of indexes
+* DBObjectSizes: 
+	- added column "Index Usage" and link to IndexUsage report
+
+[14-06-2019]
+* DBEvents :
+	- axis range and interval is adjusted (min, max)
+
+* ElasticPool :
+	- axis range and interval is adjusted (min, max)
+
+[04-06-2019]
+* ObjectStats :
+	- minor formatting enhancements
+	- column "Sample %" is added
+
+[03-06-2019]
+* ElasticPool :
+	- added DTU level, list of databases and link to DBEvents report
+* PerfmonCounters :
+	- report migrated from another project
+
+[31-05-2019]
+* Azure_Master :
+	- minor formatting changes
+* ElasticPoolHistory : created by renaming original ElasticPool
+* ElasticPool : new report is created to show current state of elastic pool and its workload today (+baseline).
+	- added link to ElasticPoolHistory report
+
+[29-05-2019]
+* DBEvents :
+	- general optimization (remove excessive queries)
+	- added separate graph for Data I/O and Log Writes
+	- minor formatting enhancements
+
+* ElasticPool : work in progress 
+
+[28-05-2019]
+* ElasticPool : new report, work in progress 
+
 [23-05-2019]
 * Azure_Master :
 	- minor formatting changes

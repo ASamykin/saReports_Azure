@@ -219,7 +219,7 @@ option (recompile)</CommandText>
             </ActionInfo>
             <Top>0.10104in</Top>
             <Left>0.125in</Left>
-            <Height>0.30208in</Height>
+            <Height>0.27083in</Height>
             <Width>3.1875in</Width>
             <ZIndex>1</ZIndex>
             <Style>
@@ -255,7 +255,7 @@ option (recompile)</CommandText>
             <rd:DefaultName>Textbox2</rd:DefaultName>
             <Top>0.10104in</Top>
             <Left>3.59375in</Left>
-            <Height>0.30208in</Height>
+            <Height>0.27083in</Height>
             <Width>3.01042in</Width>
             <ZIndex>2</ZIndex>
             <Style>
@@ -1839,7 +1839,7 @@ option (recompile)</CommandText>
             <rd:DefaultName>Textbox2</rd:DefaultName>
             <Top>0.50312in</Top>
             <Left>3.59375in</Left>
-            <Height>0.30208in</Height>
+            <Height>0.27083in</Height>
             <Width>3.01042in</Width>
             <ZIndex>4</ZIndex>
             <Style>
