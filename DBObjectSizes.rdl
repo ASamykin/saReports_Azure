@@ -29,6 +29,9 @@ a2.object_id [id]
 		else 0 end) / 128. [indexsize]
 	,(case 
 		when (a1.[reserved] + ISNULL(a4.[reserved],0)) &gt; a1.[used] then (a1.[reserved] + ISNULL(a4.[reserved],0)) - a1.[used] else 0 end) / 128. [unused]
+
+	,a2.create_date
+	,a2.modify_date
 from
 	(select
 		ps.object_id
@@ -100,6 +103,14 @@ option (recompile)</CommandText>
           <DataField>unused</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
+        <Field Name="create_date">
+          <DataField>create_date</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="modify_date">
+          <DataField>modify_date</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
       </Fields>
     </DataSet>
     <DataSet Name="dsCurrent">
@@ -135,6 +146,9 @@ getdate() [time]</CommandText>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>2.65625in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>1.14583in</Width>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1.56375in</Width>
@@ -268,6 +282,44 @@ getdate() [time]</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox6</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>WhiteSmoke</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <BackgroundColor>Gainsboro</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox21">
+                          <CanGrow>true</CanGrow>
+                          <UserSort>
+                            <SortExpression>=Fields!create_date.Value</SortExpression>
+                          </UserSort>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Created</Value>
+                                  <Style>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox21</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>WhiteSmoke</Color>
@@ -847,6 +899,49 @@ getdate() [time]</CommandText>
                     </TablixCell>
                     <TablixCell>
                       <CellContents>
+                        <Textbox Name="create_date">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!create_date.Value</Value>
+                                  <Style>
+                                    <FontSize>8pt</FontSize>
+                                    <Format>dd MMM yyyy HH:mm</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>create_date</rd:DefaultName>
+                          <ToolTip>="Modified: "+format(Fields!modify_date.Value,"dd MMM yyyy HH:mm")</ToolTip>
+                          <Style>
+                            <Border>
+                              <Color>WhiteSmoke</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <BackgroundColor>=iif(Fields!create_date.Value&lt;&gt;Fields!modify_date.Value
+	,"LemonChiffon"
+	,iif(rownumber(Nothing)/2&lt;&gt;cint(rownumber(Nothing)/2)
+		,"White"
+		,"WhiteSmoke"
+		)
+	)</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
                         <Textbox Name="type">
                           <CanGrow>true</CanGrow>
                           <KeepTogether>true</KeepTogether>
@@ -1238,7 +1333,6 @@ getdate() [time]</CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -1304,6 +1398,9 @@ getdate() [time]</CommandText>
             </TablixBody>
             <TablixColumnHierarchy>
               <TablixMembers>
+                <TablixMember>
+                  <FixedData>true</FixedData>
+                </TablixMember>
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -1322,22 +1419,20 @@ getdate() [time]</CommandText>
             <TablixRowHierarchy>
               <TablixMembers>
                 <TablixMember>
+                  <FixedData>true</FixedData>
                   <KeepWithGroup>After</KeepWithGroup>
+                  <RepeatOnNewPage>true</RepeatOnNewPage>
                 </TablixMember>
                 <TablixMember>
                   <Group Name="Details" />
                 </TablixMember>
               </TablixMembers>
             </TablixRowHierarchy>
-            <RepeatColumnHeaders>true</RepeatColumnHeaders>
-            <RepeatRowHeaders>true</RepeatRowHeaders>
-            <FixedColumnHeaders>true</FixedColumnHeaders>
-            <FixedRowHeaders>true</FixedRowHeaders>
             <DataSetName>dsTableSizes</DataSetName>
             <Top>0.15152in</Top>
             <Left>0.0925in</Left>
             <Height>0.38542in</Height>
-            <Width>14.55332in</Width>
+            <Width>15.69915in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -1348,7 +1443,7 @@ getdate() [time]</CommandText>
         <Height>0.72916in</Height>
         <Style />
       </Body>
-      <Width>14.96874in</Width>
+      <Width>15.91665in</Width>
       <Page>
         <PageHeader>
           <Height>0.78125in</Height>

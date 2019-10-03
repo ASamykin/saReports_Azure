@@ -295,6 +295,7 @@ major_resource_id [resource]
 			+'%), started at '+convert(varchar(20),start_time,106)+' '+convert(varchar(20),start_time,108) 
 			+ ', '+case when state_desc='IN_PROGRESS' then 'running for ' else 'finished in 'end + convert(varchar(20),dateadd(ss,datediff(ss,start_time,last_modify_time),0),108)
 			,char(10)) [desc]
+,max(start_time) [last_start]
 from sys.dm_operation_status
 group by major_resource_id
 option (recompile)</CommandText>
@@ -314,6 +315,10 @@ option (recompile)</CommandText>
         </Field>
         <Field Name="perc">
           <DataField>perc</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="last_start">
+          <DataField>last_start</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -534,7 +539,7 @@ from data
 from sys.databases 
 where name not in 
 (
-select database_name from sys.resource_stats
+select database_name from sys.resource_stats where start_time&gt;=convert(date,getdate())
 )
 and database_id&gt;4</CommandText>
       </Query>
@@ -654,6 +659,9 @@ and database_id&gt;4</CommandText>
                     <CellContents>
                       <Textbox Name="Textbox14">
                         <CanGrow>true</CanGrow>
+                        <UserSort>
+                          <SortExpression>=Fields!db.Value</SortExpression>
+                        </UserSort>
                         <KeepTogether>true</KeepTogether>
                         <Paragraphs>
                           <Paragraph>
@@ -1150,6 +1158,9 @@ and database_id&gt;4</CommandText>
                 <TablixColumn>
                   <Width>8.125in</Width>
                 </TablixColumn>
+                <TablixColumn>
+                  <Width>2.06759in</Width>
+                </TablixColumn>
               </TablixColumns>
               <TablixRows>
                 <TablixRow>
@@ -1500,6 +1511,40 @@ and database_id&gt;4</CommandText>
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
                         </Chart>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox27">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox27</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>None</Style>
+                            </Border>
+                            <TopBorder>
+                              <Style>Solid</Style>
+                            </TopBorder>
+                            <BackgroundColor>White</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -1882,6 +1927,41 @@ and database_id&gt;4</CommandText>
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
                         </Chart>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="db1">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!db.Value</Value>
+                                  <Style>
+                                    <FontSize>9pt</FontSize>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>db1</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>None</Style>
+                            </Border>
+                            <BackgroundColor>White</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
                       </CellContents>
                     </TablixCell>
                   </TablixCells>
@@ -2275,6 +2355,40 @@ and database_id&gt;4</CommandText>
                         </Chart>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox29">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value />
+                                  <Style />
+                                </TextRun>
+                              </TextRuns>
+                              <Style />
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox29</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>None</Style>
+                            </Border>
+                            <BottomBorder>
+                              <Style>Solid</Style>
+                            </BottomBorder>
+                            <BackgroundColor>White</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
               </TablixRows>
@@ -2337,6 +2451,55 @@ and database_id&gt;4</CommandText>
                   <TablixMembers>
                     <TablixMember />
                   </TablixMembers>
+                </TablixMember>
+                <TablixMember>
+                  <TablixHeader>
+                    <Size>0.35417in</Size>
+                    <CellContents>
+                      <Textbox Name="Textbox26">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Database</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox26</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
                 </TablixMember>
               </TablixMembers>
             </TablixColumnHierarchy>
@@ -3098,7 +3261,7 @@ and database_id&gt;4</CommandText>
             <Top>0.84667in</Top>
             <Left>0.13416in</Left>
             <Height>1.10417in</Height>
-            <Width>18.02901in</Width>
+            <Width>20.0966in</Width>
             <Style>
               <Border>
                 <Style>None</Style>
@@ -3283,6 +3446,8 @@ and database_id&gt;4</CommandText>
                                       <Value>=Fields!name.Value</Value>
                                       <Style>
                                         <FontSize>9pt</FontSize>
+                                        <TextDecoration>Underline</TextDecoration>
+                                        <Color>Blue</Color>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -3290,6 +3455,23 @@ and database_id&gt;4</CommandText>
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>name</rd:DefaultName>
+                              <ActionInfo>
+                                <Actions>
+                                  <Action>
+                                    <Drillthrough>
+                                      <ReportName>DBEvents</ReportName>
+                                      <Parameters>
+                                        <Parameter Name="DBName">
+                                          <Value>=Fields!name.Value</Value>
+                                        </Parameter>
+                                        <Parameter Name="Date">
+                                          <Value>=today()</Value>
+                                        </Parameter>
+                                      </Parameters>
+                                    </Drillthrough>
+                                  </Action>
+                                </Actions>
+                              </ActionInfo>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
@@ -3377,7 +3559,7 @@ and database_id&gt;4</CommandText>
                   <Paragraph>
                     <TextRuns>
                       <TextRun>
-                        <Value>The following databases were created recently (&lt;5min ago) and don't have performance stats yet.</Value>
+                        <Value>The following databases don't have performance stats for today yet.</Value>
                         <Style>
                           <Color>Brown</Color>
                         </Style>
@@ -3390,7 +3572,7 @@ and database_id&gt;4</CommandText>
                 <Top>0.04874cm</Top>
                 <Left>0.39623cm</Left>
                 <Height>0.6cm</Height>
-                <Width>15.14708cm</Width>
+                <Width>16.1525cm</Width>
                 <ZIndex>1</ZIndex>
                 <Style>
                   <Border>
@@ -3407,7 +3589,7 @@ and database_id&gt;4</CommandText>
             <Top>0.05487cm</Top>
             <Left>0cm</Left>
             <Height>1.91929cm</Height>
-            <Width>36.22085cm</Width>
+            <Width>19.74319cm</Width>
             <ZIndex>1</ZIndex>
             <Visibility>
               <Hidden>=iif(CountRows("dsNewDBs")&gt;0,false,true)</Hidden>
@@ -3422,7 +3604,7 @@ and database_id&gt;4</CommandText>
         <Height>5.51077cm</Height>
         <Style />
       </Body>
-      <Width>47.41739cm</Width>
+      <Width>51.6507cm</Width>
       <Page>
         <PageHeader>
           <Height>2.11667cm</Height>
@@ -3554,7 +3736,7 @@ and database_id&gt;4</CommandText>
                 </Paragraph>
               </Paragraphs>
               <rd:DefaultName>Textbox1</rd:DefaultName>
-              <Top>0.32316cm</Top>
+              <Top>0.00001cm</Top>
               <Left>25.49695cm</Left>
               <Height>0.6cm</Height>
               <Width>2.89688cm</Width>
@@ -3586,7 +3768,7 @@ and database_id&gt;4</CommandText>
                 </Paragraph>
               </Paragraphs>
               <rd:DefaultName>Textbox2</rd:DefaultName>
-              <Top>1.09954cm</Top>
+              <Top>0.70583cm</Top>
               <Left>25.49695cm</Left>
               <Height>0.6cm</Height>
               <Width>2.89688cm</Width>
@@ -3632,7 +3814,7 @@ and database_id&gt;4</CommandText>
                   </Action>
                 </Actions>
               </ActionInfo>
-              <Top>1.09954cm</Top>
+              <Top>0.70583cm</Top>
               <Left>28.53494cm</Left>
               <Height>0.6cm</Height>
               <Width>6.81271cm</Width>
@@ -3662,12 +3844,12 @@ and database_id&gt;4</CommandText>
                     </TextRun>
                   </TextRuns>
                   <Style>
-                    <TextAlign>Left</TextAlign>
+                    <TextAlign>Center</TextAlign>
                   </Style>
                 </Paragraph>
               </Paragraphs>
               <rd:DefaultName>Textbox9</rd:DefaultName>
-              <Top>0.32315cm</Top>
+              <Top>0cm</Top>
               <Left>28.53494cm</Left>
               <Height>0.6cm</Height>
               <Width>1.5475cm</Width>
@@ -3677,6 +3859,89 @@ and database_id&gt;4</CommandText>
                 <Border>
                   <Style>None</Style>
                 </Border>
+                <PaddingLeft>2pt</PaddingLeft>
+                <PaddingRight>2pt</PaddingRight>
+                <PaddingTop>2pt</PaddingTop>
+                <PaddingBottom>2pt</PaddingBottom>
+              </Style>
+            </Textbox>
+            <Textbox Name="Textbox19">
+              <CanGrow>true</CanGrow>
+              <KeepTogether>true</KeepTogether>
+              <Paragraphs>
+                <Paragraph>
+                  <TextRuns>
+                    <TextRun>
+                      <Value>Operation Status:</Value>
+                      <Style>
+                        <TextDecoration>None</TextDecoration>
+                      </Style>
+                    </TextRun>
+                  </TextRuns>
+                  <Style />
+                </Paragraph>
+              </Paragraphs>
+              <rd:DefaultName>Textbox2</rd:DefaultName>
+              <Top>1.41167cm</Top>
+              <Left>25.49695cm</Left>
+              <Height>0.6cm</Height>
+              <Width>2.89688cm</Width>
+              <ZIndex>7</ZIndex>
+              <Style>
+                <Border>
+                  <Style>None</Style>
+                </Border>
+                <PaddingLeft>2pt</PaddingLeft>
+                <PaddingRight>2pt</PaddingRight>
+                <PaddingTop>2pt</PaddingTop>
+                <PaddingBottom>2pt</PaddingBottom>
+              </Style>
+            </Textbox>
+            <Textbox Name="Textbox21">
+              <CanGrow>true</CanGrow>
+              <KeepTogether>true</KeepTogether>
+              <Paragraphs>
+                <Paragraph>
+                  <TextRuns>
+                    <TextRun>
+                      <Value>=iif(isNothing(sum(Fields!events.Value, "dsOperations"))=true
+	,0
+	,sum(Fields!events.Value, "dsOperations")
+	)</Value>
+                      <Style>
+                        <TextDecoration>Underline</TextDecoration>
+                        <Color>Blue</Color>
+                      </Style>
+                    </TextRun>
+                  </TextRuns>
+                  <Style>
+                    <TextAlign>Center</TextAlign>
+                  </Style>
+                </Paragraph>
+              </Paragraphs>
+              <rd:DefaultName>Textbox8</rd:DefaultName>
+              <ActionInfo>
+                <Actions>
+                  <Action>
+                    <Drillthrough>
+                      <ReportName>OperationStatus</ReportName>
+                    </Drillthrough>
+                  </Action>
+                </Actions>
+              </ActionInfo>
+              <Top>1.41167cm</Top>
+              <Left>28.53494cm</Left>
+              <Height>0.6cm</Height>
+              <Width>1.5475cm</Width>
+              <ZIndex>8</ZIndex>
+              <Style>
+                <Border>
+                  <Style>None</Style>
+                </Border>
+                <BackgroundColor>=iif(format(max(Fields!last_start.Value, "dsOperations"),"dd MMM yyyy")=format(today,"dd MMM yyyy")
+	,"LightGreen"
+	,"White"
+		)</BackgroundColor>
                 <PaddingLeft>2pt</PaddingLeft>
                 <PaddingRight>2pt</PaddingRight>
                 <PaddingTop>2pt</PaddingTop>

@@ -1,3 +1,37 @@
+[03-10-2019]
+* QueryStore_Overview : new report to analyze QueryStore configuration and content
+* QueryStore_Queries : new report to see content of QueryStore and execution stats 
+* QueryStore_Plans : new report to analyze execution plans per query
+* QueryStore_PlanDetails : new report to see execution plan
+
+[01-10-2019]
+* DBEvents : change of service tier is added to the recent operations section
+
+[27-08-2019]
+* AzureDB_main : added analysis of connected sessions which have RESOURCE_SEMAPHOR waits in sys.dm_exec_session_wait_stats.
+* Azure_Master : added second Database column for better UX
+* 
+
+[26-08-2019]
+* AzureDB_main :  added Indicator of processes pending for memory
+* ElasticJobs_Overview : minor formatting enhancements
+* ElasticJobs_Jobs :
+* ElasticJobs_Targets : new report is created to show targets 
+
+[20-08-2019]
+* Sessions:
+	- added link to Sessions_PreviousQuery report 
+* Sessions_PreviousQuery : new report is created to show previous query of a session
+
+[19-08-2019]
+* DBObjectSizes: 
+	- added "Created" column with highlighting if create_date<>modified_date.
+* ElasticJobs_Overview : new report created 2 weeks ago to help with Elastic Jobs 
+	- column "Next Start" now has tooltip text with time left before execution
+* ElasticJobs_Jobs : new report is created to show list of jobs
+
+[27-06-2019]
+* ObjectStats : added sorting to several columns
 
 [20-06-2019]
 * StatsHistogram : new report created to show statistics histogram

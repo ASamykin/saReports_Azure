@@ -43,12 +43,13 @@ select 'dsCurrent','end'</CommandText>
     <DataSet Name="dsWorkload">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>if object_id('tempdb..##log') is null 
+        <CommandText>/*
+if object_id('tempdb..##log') is null 
 	exec('create table ##log(i int identity,dt datetime default getdate(),[stage] varchar(50),[text] varchar(100))')
 
 insert into ##log([stage],[text])
 select 'dsWorkload','begin'
-
+*/
 set datefirst 1
 
 select 
@@ -74,10 +75,10 @@ select
 		+  ' - ' +
 	left(convert(varchar(20),dateadd(wk,datepart(wk,end_time)-1,'20190101')+5,106),6)
 		[wk_desc]
-into #elasticpool_data
+--into #elasticpool_data
 from sys.elastic_pool_resource_stats
 group by convert(smalldatetime,end_time) , elastic_pool_name , datepart(dw,end_time), datepart(wk,end_time)
-
+/*
 select 
 	[dt]
 	,[pool]
@@ -97,7 +98,8 @@ select
 from #elasticpool_data
 
 insert into ##log([stage],[text])
-select 'dsWorkload','end'</CommandText>
+select 'dsWorkload','end'
+*/</CommandText>
       </Query>
       <Fields>
         <Field Name="dt">
@@ -174,13 +176,14 @@ select 'dsWorkload','end'</CommandText>
     <DataSet Name="dsDatabaseStats">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>if object_id('tempdb..##log') is null 
+        <CommandText>/*
+if object_id('tempdb..##log') is null 
 	exec('create table ##log(i int identity,dt datetime default getdate(),[stage] varchar(50),[text] varchar(100))')
 
 insert into ##log([stage],[text])
 select 'dsDatabaseStats','begin'
 
-
+*/
 ;with data as (
 select 
 	convert(smalldatetime,rs.end_time) [dt]
@@ -228,9 +231,10 @@ select
 	,p.pool
  from data d
  join pools p on p.db=d.db
-
+/*
 insert into ##log([stage],[text])
-select 'dsDatabaseStats','end'</CommandText>
+select 'dsDatabaseStats','end'
+*/</CommandText>
       </Query>
       <Fields>
         <Field Name="n">
@@ -1918,8 +1922,8 @@ select 'dsPools','end'</CommandText>
                     </ChartMinorTickMarks>
                     <CrossAt>NaN</CrossAt>
                     <Scalar>true</Scalar>
-                    <Minimum>NaN</Minimum>
-                    <Maximum>NaN</Maximum>
+                    <Minimum>=Parameters!Date.Value</Minimum>
+                    <Maximum>=dateadd(dateinterval.Day,1,Parameters!Date.Value)</Maximum>
                     <ChartAxisScaleBreak>
                       <Style />
                     </ChartAxisScaleBreak>
@@ -2776,8 +2780,8 @@ select 'dsPools','end'</CommandText>
                     </ChartMinorTickMarks>
                     <CrossAt>NaN</CrossAt>
                     <Scalar>true</Scalar>
-                    <Minimum>NaN</Minimum>
-                    <Maximum>NaN</Maximum>
+                    <Minimum>=Parameters!Date.Value</Minimum>
+                    <Maximum>=dateadd(dateinterval.Day,1,Parameters!Date.Value)</Maximum>
                     <ChartAxisScaleBreak>
                       <Style />
                     </ChartAxisScaleBreak>
@@ -3147,6 +3151,8 @@ select 'dsPools','end'</CommandText>
                             <Color>#5c5c5c</Color>
                           </Style>
                         </ChartAxisTitle>
+                        <Interval>15</Interval>
+                        <IntervalType>Minutes</IntervalType>
                         <ChartMajorGridLines>
                           <Enabled>False</Enabled>
                           <Style>
@@ -3180,8 +3186,9 @@ select 'dsPools','end'</CommandText>
                           <Length>0.5</Length>
                         </ChartMinorTickMarks>
                         <CrossAt>NaN</CrossAt>
-                        <Minimum>NaN</Minimum>
-                        <Maximum>NaN</Maximum>
+                        <Scalar>true</Scalar>
+                        <Minimum>=Parameters!Date.Value</Minimum>
+                        <Maximum>=dateadd(dateinterval.Day,1,Parameters!Date.Value)</Maximum>
                         <ChartAxisScaleBreak>
                           <Style />
                         </ChartAxisScaleBreak>
@@ -3521,6 +3528,8 @@ select 'dsPools','end'</CommandText>
                             <Color>#5c5c5c</Color>
                           </Style>
                         </ChartAxisTitle>
+                        <Interval>15</Interval>
+                        <IntervalType>Minutes</IntervalType>
                         <ChartMajorGridLines>
                           <Enabled>False</Enabled>
                           <Style>
@@ -3554,8 +3563,9 @@ select 'dsPools','end'</CommandText>
                           <Length>0.5</Length>
                         </ChartMinorTickMarks>
                         <CrossAt>NaN</CrossAt>
-                        <Minimum>NaN</Minimum>
-                        <Maximum>NaN</Maximum>
+                        <Scalar>true</Scalar>
+                        <Minimum>=Parameters!Date.Value</Minimum>
+                        <Maximum>=dateadd(dateinterval.Day,1,Parameters!Date.Value)</Maximum>
                         <ChartAxisScaleBreak>
                           <Style />
                         </ChartAxisScaleBreak>
@@ -3816,6 +3826,422 @@ select 'dsPools','end'</CommandText>
               </Border>
             </Style>
           </Rectangle>
+          <Chart Name="Chart7">
+            <ChartCategoryHierarchy>
+              <ChartMembers>
+                <ChartMember>
+                  <Group Name="Chart7_CategoryGroup">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!dt.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!dt.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <Label>=Fields!dt.Value</Label>
+                </ChartMember>
+              </ChartMembers>
+            </ChartCategoryHierarchy>
+            <ChartSeriesHierarchy>
+              <ChartMembers>
+                <ChartMember>
+                  <Label>storlimit MB</Label>
+                </ChartMember>
+                <ChartMember>
+                  <Label>storage MB</Label>
+                </ChartMember>
+              </ChartMembers>
+            </ChartSeriesHierarchy>
+            <ChartData>
+              <ChartSeriesCollection>
+                <ChartSeries Name="storage_max">
+                  <ChartDataPoints>
+                    <ChartDataPoint>
+                      <ChartDataPointValues>
+                        <Y>=Sum(Fields!storlimitMB.Value)</Y>
+                      </ChartDataPointValues>
+                      <ChartDataLabel>
+                        <Style />
+                      </ChartDataLabel>
+                      <ToolTip>="Date: "+format(Fields!dt.Value,"dd MMM, HH:mm")+chr(10)
++"Used (MB): "+cstr(Fields!storageMB.Value)+chr(10)
++"Limit (MB): "+cstr(Fields!storlimitMB.Value)</ToolTip>
+                      <Style>
+                        <Border>
+                          <Color>LightGrey</Color>
+                        </Border>
+                        <Color>WhiteSmoke</Color>
+                      </Style>
+                      <ChartMarker>
+                        <Style />
+                      </ChartMarker>
+                      <DataElementOutput>Output</DataElementOutput>
+                    </ChartDataPoint>
+                  </ChartDataPoints>
+                  <Type>Area</Type>
+                  <Subtype>Smooth</Subtype>
+                  <Style />
+                  <ChartEmptyPoints>
+                    <Style />
+                    <ChartMarker>
+                      <Style />
+                    </ChartMarker>
+                    <ChartDataLabel>
+                      <Style />
+                    </ChartDataLabel>
+                  </ChartEmptyPoints>
+                  <ChartItemInLegend>
+                    <LegendText>Space Limit (MB)</LegendText>
+                  </ChartItemInLegend>
+                  <ValueAxisName>Primary</ValueAxisName>
+                  <CategoryAxisName>Primary</CategoryAxisName>
+                  <ChartSmartLabel>
+                    <CalloutLineColor>Black</CalloutLineColor>
+                    <MinMovingDistance>0pt</MinMovingDistance>
+                  </ChartSmartLabel>
+                </ChartSeries>
+                <ChartSeries Name="storageMB">
+                  <ChartDataPoints>
+                    <ChartDataPoint>
+                      <ChartDataPointValues>
+                        <Y>=Sum(Fields!storageMB.Value)</Y>
+                      </ChartDataPointValues>
+                      <ChartDataLabel>
+                        <Style />
+                      </ChartDataLabel>
+                      <ToolTip>="Date: "+format(Fields!dt.Value,"dd MMM, HH:mm")+chr(10)
++"Used (MB): "+cstr(Fields!storageMB.Value)+chr(10)
++"Limit (MB): "+cstr(Fields!storlimitMB.Value)</ToolTip>
+                      <Style>
+                        <Border>
+                          <Color>#00ffffff</Color>
+                        </Border>
+                        <Color>Silver</Color>
+                      </Style>
+                      <ChartMarker>
+                        <Style />
+                      </ChartMarker>
+                      <DataElementOutput>Output</DataElementOutput>
+                    </ChartDataPoint>
+                  </ChartDataPoints>
+                  <Type>Area</Type>
+                  <Subtype>Smooth</Subtype>
+                  <Style />
+                  <ChartEmptyPoints>
+                    <Style />
+                    <ChartMarker>
+                      <Style />
+                    </ChartMarker>
+                    <ChartDataLabel>
+                      <Style />
+                    </ChartDataLabel>
+                  </ChartEmptyPoints>
+                  <ChartItemInLegend>
+                    <LegendText>Space Used (MB)</LegendText>
+                  </ChartItemInLegend>
+                  <ValueAxisName>Primary</ValueAxisName>
+                  <CategoryAxisName>Primary</CategoryAxisName>
+                  <ChartSmartLabel>
+                    <CalloutLineColor>Black</CalloutLineColor>
+                    <MinMovingDistance>0pt</MinMovingDistance>
+                  </ChartSmartLabel>
+                </ChartSeries>
+              </ChartSeriesCollection>
+            </ChartData>
+            <ChartAreas>
+              <ChartArea Name="Default">
+                <ChartCategoryAxes>
+                  <ChartAxis Name="Primary">
+                    <Style>
+                      <Border>
+                        <Color>Gainsboro</Color>
+                        <Style>None</Style>
+                      </Border>
+                      <FontSize>8pt</FontSize>
+                      <Format>H:mm</Format>
+                      <Color>#5c5c5c</Color>
+                    </Style>
+                    <ChartAxisTitle>
+                      <Caption />
+                      <Style>
+                        <FontSize>9pt</FontSize>
+                        <Color>#5c5c5c</Color>
+                      </Style>
+                    </ChartAxisTitle>
+                    <Interval>15</Interval>
+                    <IntervalType>Minutes</IntervalType>
+                    <ChartMajorGridLines>
+                      <Enabled>False</Enabled>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                    </ChartMajorGridLines>
+                    <ChartMinorGridLines>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>Dotted</Style>
+                        </Border>
+                      </Style>
+                    </ChartMinorGridLines>
+                    <ChartMajorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>None</Style>
+                        </Border>
+                      </Style>
+                    </ChartMajorTickMarks>
+                    <ChartMinorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                      <Length>0.5</Length>
+                    </ChartMinorTickMarks>
+                    <CrossAt>NaN</CrossAt>
+                    <Scalar>true</Scalar>
+                    <Minimum>=Parameters!Date.Value</Minimum>
+                    <Maximum>=dateadd(dateinterval.Day,1,Parameters!Date.Value)</Maximum>
+                    <ChartAxisScaleBreak>
+                      <Style />
+                    </ChartAxisScaleBreak>
+                  </ChartAxis>
+                  <ChartAxis Name="Secondary">
+                    <Style>
+                      <Border>
+                        <Color>Gainsboro</Color>
+                        <Style>None</Style>
+                      </Border>
+                      <FontSize>8pt</FontSize>
+                      <Color>#5c5c5c</Color>
+                    </Style>
+                    <ChartAxisTitle>
+                      <Caption />
+                      <Style>
+                        <FontSize>9pt</FontSize>
+                        <Color>#5c5c5c</Color>
+                      </Style>
+                    </ChartAxisTitle>
+                    <ChartMajorGridLines>
+                      <Enabled>False</Enabled>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                    </ChartMajorGridLines>
+                    <ChartMinorGridLines>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>Dotted</Style>
+                        </Border>
+                      </Style>
+                    </ChartMinorGridLines>
+                    <ChartMajorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>None</Style>
+                        </Border>
+                      </Style>
+                    </ChartMajorTickMarks>
+                    <ChartMinorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                      <Length>0.5</Length>
+                    </ChartMinorTickMarks>
+                    <CrossAt>NaN</CrossAt>
+                    <Location>Opposite</Location>
+                    <Minimum>NaN</Minimum>
+                    <Maximum>NaN</Maximum>
+                    <ChartAxisScaleBreak>
+                      <Style />
+                    </ChartAxisScaleBreak>
+                  </ChartAxis>
+                </ChartCategoryAxes>
+                <ChartValueAxes>
+                  <ChartAxis Name="Primary">
+                    <Style>
+                      <Border>
+                        <Color>Gainsboro</Color>
+                        <Style>None</Style>
+                      </Border>
+                      <FontSize>8pt</FontSize>
+                      <Format>#,0;(#,0)</Format>
+                      <Color>#5c5c5c</Color>
+                    </Style>
+                    <ChartAxisTitle>
+                      <Caption />
+                      <Style>
+                        <FontSize>9pt</FontSize>
+                        <Color>#5c5c5c</Color>
+                      </Style>
+                    </ChartAxisTitle>
+                    <Interval>=max(Fields!storlimitMB.Value)/10</Interval>
+                    <ChartMajorGridLines>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                    </ChartMajorGridLines>
+                    <ChartMinorGridLines>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>Dotted</Style>
+                        </Border>
+                      </Style>
+                    </ChartMinorGridLines>
+                    <ChartMajorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>None</Style>
+                        </Border>
+                      </Style>
+                    </ChartMajorTickMarks>
+                    <ChartMinorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                      <Length>0.5</Length>
+                    </ChartMinorTickMarks>
+                    <CrossAt>NaN</CrossAt>
+                    <Minimum>NaN</Minimum>
+                    <Maximum>=Max(Fields!storlimitMB.Value)</Maximum>
+                    <ChartAxisScaleBreak>
+                      <Style />
+                    </ChartAxisScaleBreak>
+                  </ChartAxis>
+                  <ChartAxis Name="Secondary">
+                    <Style>
+                      <Border>
+                        <Color>Gainsboro</Color>
+                        <Style>None</Style>
+                      </Border>
+                      <FontSize>8pt</FontSize>
+                      <Color>#5c5c5c</Color>
+                    </Style>
+                    <ChartAxisTitle>
+                      <Caption />
+                      <Style>
+                        <FontSize>9pt</FontSize>
+                        <Color>#5c5c5c</Color>
+                      </Style>
+                    </ChartAxisTitle>
+                    <ChartMajorGridLines>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                    </ChartMajorGridLines>
+                    <ChartMinorGridLines>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>Dotted</Style>
+                        </Border>
+                      </Style>
+                    </ChartMinorGridLines>
+                    <ChartMajorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                          <Style>None</Style>
+                        </Border>
+                      </Style>
+                    </ChartMajorTickMarks>
+                    <ChartMinorTickMarks>
+                      <Style>
+                        <Border>
+                          <Color>Gainsboro</Color>
+                        </Border>
+                      </Style>
+                      <Length>0.5</Length>
+                    </ChartMinorTickMarks>
+                    <CrossAt>NaN</CrossAt>
+                    <Location>Opposite</Location>
+                    <Minimum>NaN</Minimum>
+                    <Maximum>NaN</Maximum>
+                    <ChartAxisScaleBreak>
+                      <Style />
+                    </ChartAxisScaleBreak>
+                  </ChartAxis>
+                </ChartValueAxes>
+                <Style>
+                  <BackgroundColor>#00ffffff</BackgroundColor>
+                  <BackgroundGradientType>None</BackgroundGradientType>
+                </Style>
+              </ChartArea>
+            </ChartAreas>
+            <ChartLegends>
+              <ChartLegend Name="Default">
+                <Style>
+                  <BackgroundColor>LightGrey</BackgroundColor>
+                  <BackgroundGradientType>Center</BackgroundGradientType>
+                  <BackgroundGradientEndColor>#00ffffff</BackgroundGradientEndColor>
+                  <FontSize>8pt</FontSize>
+                </Style>
+                <Position>TopLeft</Position>
+                <DockToChartArea>Default</DockToChartArea>
+                <ChartLegendTitle>
+                  <Caption />
+                  <Style>
+                    <FontSize>8pt</FontSize>
+                    <FontWeight>Bold</FontWeight>
+                    <TextAlign>Center</TextAlign>
+                  </Style>
+                </ChartLegendTitle>
+                <HeaderSeparatorColor>Black</HeaderSeparatorColor>
+                <ColumnSeparatorColor>Black</ColumnSeparatorColor>
+              </ChartLegend>
+            </ChartLegends>
+            <Palette>Pacific</Palette>
+            <ChartBorderSkin>
+              <Style>
+                <BackgroundColor>Gray</BackgroundColor>
+                <BackgroundGradientType>None</BackgroundGradientType>
+                <Color>White</Color>
+              </Style>
+            </ChartBorderSkin>
+            <ChartNoDataMessage Name="NoDataMessage">
+              <Caption>No Data Available</Caption>
+              <Style>
+                <BackgroundGradientType>None</BackgroundGradientType>
+                <FontWeight>Bold</FontWeight>
+                <TextAlign>General</TextAlign>
+                <VerticalAlign>Top</VerticalAlign>
+              </Style>
+            </ChartNoDataMessage>
+            <DataSetName>dsWorkload</DataSetName>
+            <Top>32.27332cm</Top>
+            <Left>0.29103cm</Left>
+            <Height>6.15569cm</Height>
+            <Width>30.27837cm</Width>
+            <ZIndex>8</ZIndex>
+            <Style>
+              <Border>
+                <Color>LightGrey</Color>
+                <Style>None</Style>
+              </Border>
+              <BackgroundColor>White</BackgroundColor>
+              <BackgroundGradientType>None</BackgroundGradientType>
+            </Style>
+          </Chart>
         </ReportItems>
         <Height>43.13274cm</Height>
         <Style />

@@ -896,7 +896,7 @@ exec ('dbcc tracestatus()')
 	select '902','Bypass Upgrade Scripts.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
 	select '1117','Simultaneous Autogrowth in Multiple-file database.','http://blogs.technet.com/technet_blog_images/b/sql_server_sizing_ha_and_performance_hints/archive/2012/02/09/sql-server-2008-trace-flag-t-1117.aspx' union all
 	select '1118','Force Uniform Extent Allocation.','http://blogs.msdn.com/b/psssql/archive/2008/12/17/sql-server-2005-and-2008-trace-flag-1118-t1118-usage.aspx' union all
-	select '1119','Turns of mixed extent allocation (Similar to 1118?)','http://social.technet.microsoft.com/wiki/contents/articles/13105.trace-flags-in-sql-server.aspx' union all
+	select '1119','Turns off mixed extent allocation (Similar to 1118?)','http://social.technet.microsoft.com/wiki/contents/articles/13105.trace-flags-in-sql-server.aspx' union all
 	select '1140','Fix for growing tempdb in special cases.','http://support.microsoft.com/kb/2000471' union all
 	select '1200','Prints detailed lock information.','http://social.technet.microsoft.com/wiki/contents/articles/13105.trace-flags-in-sql-server.aspx' union all
 	select '1204','Returns info about deadlocks.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
@@ -1473,6 +1473,215 @@ option (recompile,maxdop 1)</CommandText>
         </Field>
       </Fields>
     </DataSet>
+    <DataSet Name="dsMemoryPending">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>select 
+	isnull(sum(iif(is_next_candidate is null,0,1)),0) [waiting]
+	,convert(varchar(20),dateadd(ss,min(datediff(ss,request_time,getdate())),0),108) [wait_min]
+	,convert(varchar(20),dateadd(ss,max(datediff(ss,request_time,getdate())),0),108) [wait_max]
+	,min(datediff(ss,request_time,getdate())) [wait_min_ss]
+	,max(datediff(ss,request_time,getdate())) [wait_max_ss]
+	,isnull(avg(timeout_sec),1) [timeout_avg]
+	,isnull(max(timeout_sec),2) [timeout_max]
+
+	,(select convert(varchar(10),count(distinct session_id))  +' ('+ string_agg(quotename(convert(varchar(10),session_id)),',')+') with ' + convert(varchar(20),sum(wait_time_ms)/1000)+'s total wait.' [sessions] from sys.dm_exec_session_wait_stats  where wait_type = 'RESOURCE_SEMAPHORE') [affected_sessions]
+
+from sys.dm_exec_query_memory_grants
+where is_next_candidate is null</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="waiting">
+          <DataField>waiting</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="wait_min">
+          <DataField>wait_min</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="wait_max">
+          <DataField>wait_max</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="wait_min_ss">
+          <DataField>wait_min_ss</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="wait_max_ss">
+          <DataField>wait_max_ss</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="timeout_avg">
+          <DataField>timeout_avg</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="timeout_max">
+          <DataField>timeout_max</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="affected_sessions">
+          <DataField>affected_sessions</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsMemoryPendingDetails">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>select session_id
+	,isnull(convert(varchar(20),dateadd(ss,datediff(ss,request_time,grant_time),0),108), '... still waiting') [waited]
+	,query_cost
+	,requested_memory_kb
+	,granted_memory_kb
+	,required_memory_kb
+	,used_memory_kb
+	,max_used_memory_kb
+	,timeout_sec
+from  sys.dm_exec_query_memory_grants</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="session_id">
+          <DataField>session_id</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="waited">
+          <DataField>waited</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="query_cost">
+          <DataField>query_cost</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="requested_memory_kb">
+          <DataField>requested_memory_kb</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="granted_memory_kb">
+          <DataField>granted_memory_kb</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="required_memory_kb">
+          <DataField>required_memory_kb</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="used_memory_kb">
+          <DataField>used_memory_kb</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="max_used_memory_kb">
+          <DataField>max_used_memory_kb</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="timeout_sec">
+          <DataField>timeout_sec</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsQueryStore">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>with data(n,txt) as 
+(
+select 0,'n/a' union all
+select 1,'Database is in read-only mode.' union all
+select 2,'Database is in single-user mode.' union all
+select 4,'Database is in emergency mode.' union all
+select 8,'Database is secondary replica.' union all
+select 65536,'QS size limit is reached.' union all
+select 131072,'The number of different statements has reached the internal memory limit.' union all
+select 262144,'Size of in-memory items waiting to be persisted on disk has reached the internal memory limit.' union all
+select 524288,'Database has reached disk size limit.'
+) 
+select 
+	 so.actual_state_desc	[state_actual]
+	,so.desired_state_desc [state_desired]
+	,so.query_capture_mode_desc [capture_mode]
+	,so.readonly_reason
+	,d.txt
+
+	,so.current_storage_size_mb [current_mb]
+	,so.max_storage_size_mb	[max_mb]
+
+	,so.flush_interval_seconds	[flush_sec]
+	,so.interval_length_minutes	[interval_min]
+
+	,so.stale_query_threshold_days [stale_threshold]
+	,so.max_plans_per_query	[max_plans]
+
+	,so.size_based_cleanup_mode_desc	[size_based_cleanup]
+	,so.wait_stats_capture_mode_desc	[wait_stats_capture]
+	,(select sum(cast(is_forced_plan as tinyint)) from sys.query_store_plan) [plans_forced]
+	--,(select count(distinct query_id) from sys.query_store_plan where force_failure_count&gt;0) [force_failed]
+	,(select sum(force_failure_count) from sys.query_store_plan ) [force_failed]
+
+
+from sys.database_query_store_options so
+join data d on so.readonly_reason=d.n</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="state_actual">
+          <DataField>state_actual</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="state_desired">
+          <DataField>state_desired</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="capture_mode">
+          <DataField>capture_mode</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="current_mb">
+          <DataField>current_mb</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="max_mb">
+          <DataField>max_mb</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="flush_sec">
+          <DataField>flush_sec</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="interval_min">
+          <DataField>interval_min</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="stale_threshold">
+          <DataField>stale_threshold</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="max_plans">
+          <DataField>max_plans</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="size_based_cleanup">
+          <DataField>size_based_cleanup</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="wait_stats_capture">
+          <DataField>wait_stats_capture</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="plans_forced">
+          <DataField>plans_forced</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="force_failed">
+          <DataField>force_failed</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="readonly_reason">
+          <DataField>readonly_reason</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="txt">
+          <DataField>txt</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
   </DataSets>
   <ReportSections>
     <ReportSection>
@@ -1728,7 +1937,10 @@ option (recompile,maxdop 1)</CommandText>
                 <Height>0.58333in</Height>
                 <Width>1.14584in</Width>
                 <ZIndex>5</ZIndex>
-                <ToolTip>Page Life Expectancy (d hh:mm:ss)</ToolTip>
+                <ToolTip>="Page Life Expectancy (PLE)"+chr(10)+chr(10)+"   " 
++Split(First(Fields!PLE.Value, "dsCPURAM"),":").GetValue(0)+" hrs "
++Split(First(Fields!PLE.Value, "dsCPURAM"),":").GetValue(1)+" min "
++Split(First(Fields!PLE.Value, "dsCPURAM"),":").GetValue(2)+" sec"</ToolTip>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -3027,28 +3239,28 @@ option (recompile,maxdop 1)</CommandText>
                 <TablixBody>
                   <TablixColumns>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>1in</Width>
+                      <Width>0.9in</Width>
                     </TablixColumn>
                   </TablixColumns>
                   <TablixRows>
@@ -3788,7 +4000,7 @@ option (recompile,maxdop 1)</CommandText>
                 <Top>1.41805in</Top>
                 <Left>1.17361in</Left>
                 <Height>0.35416in</Height>
-                <Width>8in</Width>
+                <Width>7.2in</Width>
                 <ZIndex>14</ZIndex>
                 <Style>
                   <Border>
@@ -3809,7 +4021,7 @@ option (recompile,maxdop 1)</CommandText>
                       <Width>1.67979cm</Width>
                     </TablixColumn>
                     <TablixColumn>
-                      <Width>2.5cm</Width>
+                      <Width>3.63771cm</Width>
                     </TablixColumn>
                     <TablixColumn>
                       <Width>1.36229cm</Width>
@@ -4114,7 +4326,7 @@ option (recompile,maxdop 1)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>=left(Fields!description.Value,10)+iif(Fields!description.Value="(unknown)","","...")</Value>
+                                      <Value>=left(Fields!description.Value,20)+iif(Fields!description.Value="(unknown)","","...")</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                       </Style>
@@ -4212,7 +4424,7 @@ option (recompile,maxdop 1)</CommandText>
                 <Top>2.53996cm</Top>
                 <Left>33.54163cm</Left>
                 <Height>0.69143cm</Height>
-                <Width>7.51951cm</Width>
+                <Width>8.65722cm</Width>
                 <ZIndex>15</ZIndex>
                 <Visibility>
                   <Hidden>true</Hidden>
@@ -4918,7 +5130,7 @@ option (recompile,maxdop 1)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Buffer</Value>
+                                      <Value>View</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                         <FontWeight>Bold</FontWeight>
@@ -5202,7 +5414,7 @@ option (recompile,maxdop 1)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>=iif(isNothing(Fields!duration.Value)=true,"stopped",Fields!duration.Value)</Value>
+                                      <Value>=iif(isNothing(Fields!duration.Value)=true,"-",Fields!duration.Value)</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
                                       </Style>
@@ -5288,27 +5500,10 @@ option (recompile,maxdop 1)</CommandText>
                         </TablixCell>
                         <TablixCell>
                           <CellContents>
-                            <Textbox Name="Textbox85">
-                              <CanGrow>true</CanGrow>
-                              <KeepTogether>true</KeepTogether>
-                              <Paragraphs>
-                                <Paragraph>
-                                  <TextRuns>
-                                    <TextRun>
-                                      <Value>=iif(isNothing(Fields!status.Value)=false,"Stop","Start")</Value>
-                                      <Style>
-                                        <FontSize>8pt</FontSize>
-                                        <TextDecoration>Underline</TextDecoration>
-                                        <Color>Blue</Color>
-                                      </Style>
-                                    </TextRun>
-                                  </TextRuns>
-                                  <Style>
-                                    <TextAlign>Center</TextAlign>
-                                  </Style>
-                                </Paragraph>
-                              </Paragraphs>
-                              <rd:DefaultName>Textbox85</rd:DefaultName>
+                            <Image Name="Image2">
+                              <Source>Embedded</Source>
+                              <Value>=iif(isNothing(Fields!status.Value)=false,"pic_stop","pic_start")</Value>
+                              <Sizing>FitProportional</Sizing>
                               <ActionInfo>
                                 <Actions>
                                   <Action>
@@ -5329,55 +5524,32 @@ option (recompile,maxdop 1)</CommandText>
                                   </Action>
                                 </Actions>
                               </ActionInfo>
+                              <ToolTip>=iif(isNothing(Fields!status.Value)=false
+	,"Stop """
+	,"Start """
+	)+Fields!name.Value+""" session"</ToolTip>
                               <Style>
                                 <Border>
+                                  <Style>None</Style>
+                                </Border>
+                                <BottomBorder>
                                   <Color>LightGrey</Color>
                                   <Style>Solid</Style>
-                                </Border>
-                                <TopBorder>
-                                  <Style>None</Style>
-                                </TopBorder>
-                                <LeftBorder>
-                                  <Style>None</Style>
-                                </LeftBorder>
-                                <RightBorder>
-                                  <Style>None</Style>
-                                </RightBorder>
-                                <PaddingLeft>2pt</PaddingLeft>
-                                <PaddingRight>2pt</PaddingRight>
-                                <PaddingTop>2pt</PaddingTop>
-                                <PaddingBottom>2pt</PaddingBottom>
+                                </BottomBorder>
+                                <PaddingLeft>12pt</PaddingLeft>
                               </Style>
-                            </Textbox>
+                            </Image>
                           </CellContents>
                         </TablixCell>
                         <TablixCell>
                           <CellContents>
-                            <Textbox Name="Textbox88">
-                              <CanGrow>true</CanGrow>
-                              <KeepTogether>true</KeepTogether>
-                              <Paragraphs>
-                                <Paragraph>
-                                  <TextRuns>
-                                    <TextRun>
-                                      <Value>=iif(isNothing(Fields!duration.Value)=true
+                            <Image Name="Image3">
+                              <Source>Embedded</Source>
+                              <Value>=iif(isNothing(Fields!duration.Value)=true
 	,Nothing
-	,iif(InStr(Fields!targets.Value,"ring_buffer")&gt;0, "View",Nothing)
+	,iif(InStr(Fields!targets.Value,"ring_buffer")&gt;0, "pic_view",Nothing)
 	)</Value>
-                                      <Style>
-                                        <FontSize>8pt</FontSize>
-                                        <FontWeight>Normal</FontWeight>
-                                        <TextDecoration>Underline</TextDecoration>
-                                        <Color>Blue</Color>
-                                      </Style>
-                                    </TextRun>
-                                  </TextRuns>
-                                  <Style>
-                                    <TextAlign>Center</TextAlign>
-                                  </Style>
-                                </Paragraph>
-                              </Paragraphs>
-                              <rd:DefaultName>Textbox88</rd:DefaultName>
+                              <Sizing>FitProportional</Sizing>
                               <ActionInfo>
                                 <Actions>
                                   <Action>
@@ -5392,27 +5564,21 @@ option (recompile,maxdop 1)</CommandText>
                                   </Action>
                                 </Actions>
                               </ActionInfo>
-                              <ToolTip>View content of the buffer</ToolTip>
+                              <ToolTip>=iif(isNothing(Fields!duration.Value)=true
+	,Nothing
+	,iif(InStr(Fields!targets.Value,"ring_buffer")&gt;0, "View collected data",Nothing)
+	)</ToolTip>
                               <Style>
                                 <Border>
+                                  <Style>None</Style>
+                                </Border>
+                                <BottomBorder>
                                   <Color>LightGrey</Color>
                                   <Style>Solid</Style>
-                                </Border>
-                                <TopBorder>
-                                  <Style>None</Style>
-                                </TopBorder>
-                                <LeftBorder>
-                                  <Style>None</Style>
-                                </LeftBorder>
-                                <RightBorder>
-                                  <Style>None</Style>
-                                </RightBorder>
-                                <PaddingLeft>2pt</PaddingLeft>
-                                <PaddingRight>2pt</PaddingRight>
-                                <PaddingTop>2pt</PaddingTop>
-                                <PaddingBottom>2pt</PaddingBottom>
+                                </BottomBorder>
+                                <PaddingLeft>12pt</PaddingLeft>
                               </Style>
-                            </Textbox>
+                            </Image>
                           </CellContents>
                         </TablixCell>
                       </TablixCells>
@@ -6154,6 +6320,198 @@ option (recompile,maxdop 1)</CommandText>
                   <Border>
                     <Style>None</Style>
                   </Border>
+                  <PaddingLeft>2pt</PaddingLeft>
+                  <PaddingRight>2pt</PaddingRight>
+                  <PaddingTop>2pt</PaddingTop>
+                  <PaddingBottom>2pt</PaddingBottom>
+                </Style>
+              </Textbox>
+              <GaugePanel Name="GaugePanel1">
+                <StateIndicators>
+                  <StateIndicator Name="Indicator1">
+                    <GaugeInputValue>
+                      <Value>=iif(Fields!waiting.Value&gt;0
+	,Fields!wait_max_ss.Value
+	,Fields!waiting.Value)</Value>
+                      <Multiplier>1</Multiplier>
+                      <DataElementOutput>NoOutput</DataElementOutput>
+                    </GaugeInputValue>
+                    <TransformationType>None</TransformationType>
+                    <TransformationScope />
+                    <MinimumValue>
+                      <Value>NaN</Value>
+                      <Multiplier>1</Multiplier>
+                    </MinimumValue>
+                    <MaximumValue>
+                      <Value>NaN</Value>
+                      <Multiplier>1</Multiplier>
+                    </MaximumValue>
+                    <IndicatorStyle>None</IndicatorStyle>
+                    <IndicatorImage>
+                      <Source>External</Source>
+                      <Value />
+                    </IndicatorImage>
+                    <ScaleFactor>1</ScaleFactor>
+                    <IndicatorStates>
+                      <IndicatorState Name="Red">
+                        <StartValue>
+                          <Value>=Fields!timeout_avg.Value+1</Value>
+                          <Multiplier>1</Multiplier>
+                        </StartValue>
+                        <EndValue>
+                          <Value>=Fields!timeout_max.Value</Value>
+                          <Multiplier>1</Multiplier>
+                        </EndValue>
+                        <Color>#c0433a</Color>
+                        <ScaleFactor>1</ScaleFactor>
+                        <IndicatorStyle>TrafficLightUnrimmed</IndicatorStyle>
+                        <IndicatorImage>
+                          <Source>External</Source>
+                          <Value />
+                        </IndicatorImage>
+                      </IndicatorState>
+                      <IndicatorState Name="Yellow">
+                        <StartValue>
+                          <Value>1</Value>
+                          <Multiplier>1</Multiplier>
+                        </StartValue>
+                        <EndValue>
+                          <Value>=Fields!timeout_avg.Value</Value>
+                          <Multiplier>1</Multiplier>
+                        </EndValue>
+                        <Color>#e8d62e</Color>
+                        <ScaleFactor>1</ScaleFactor>
+                        <IndicatorStyle>TrafficLightUnrimmed</IndicatorStyle>
+                        <IndicatorImage>
+                          <Source>External</Source>
+                          <Value />
+                        </IndicatorImage>
+                      </IndicatorState>
+                      <IndicatorState Name="Green">
+                        <StartValue>
+                          <Value>0</Value>
+                          <Multiplier>1</Multiplier>
+                        </StartValue>
+                        <EndValue>
+                          <Value>0</Value>
+                          <Multiplier>1</Multiplier>
+                        </EndValue>
+                        <Color>#79c75b</Color>
+                        <ScaleFactor>1</ScaleFactor>
+                        <IndicatorStyle>TrafficLightUnrimmed</IndicatorStyle>
+                        <IndicatorImage>
+                          <Source>External</Source>
+                          <Value />
+                        </IndicatorImage>
+                      </IndicatorState>
+                    </IndicatorStates>
+                    <Angle>0</Angle>
+                    <StateDataElementName />
+                    <rd:IconsSet>ThreeUnrimmedTrafficLights</rd:IconsSet>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <ShadowOffset>0pt</ShadowOffset>
+                    </Style>
+                    <Top>4</Top>
+                    <Left>4</Left>
+                    <Height>92</Height>
+                    <Width>92</Width>
+                    <ToolTip>=iif(Fields!waiting.Value&gt;0
+	,"Queries waiting for memory are detected."+chr(10)
+		+"Waiting: "+cstr(Fields!waiting.Value)+chr(10)
+		+"Wait (min): "+Fields!wait_min.Value+chr(10)
+		+"Wait (max): "+Fields!wait_max.Value+chr(10)
+		+"Total affected: "+cstr(Fields!affected_sessions.Value)
+	,"No queries waiting for memory."
+		+iif(isNothing(cstr(Fields!affected_sessions.Value))=false
+			,chr(10)+"Affected sessions: "+cstr(Fields!affected_sessions.Value)
+			,""
+			)
+	)</ToolTip>
+                  </StateIndicator>
+                </StateIndicators>
+                <AutoLayout>true</AutoLayout>
+                <BackFrame>
+                  <Style>
+                    <Border>
+                      <Style>None</Style>
+                    </Border>
+                    <BackgroundColor>Gainsboro</BackgroundColor>
+                    <BackgroundGradientType>None</BackgroundGradientType>
+                    <BackgroundGradientEndColor>Gray</BackgroundGradientEndColor>
+                    <BackgroundHatchType>None</BackgroundHatchType>
+                    <ShadowOffset>0pt</ShadowOffset>
+                  </Style>
+                  <FrameBackground>
+                    <Style>
+                      <BackgroundColor>Silver</BackgroundColor>
+                      <BackgroundGradientType>DiagonalLeft</BackgroundGradientType>
+                      <BackgroundGradientEndColor>Gray</BackgroundGradientEndColor>
+                      <BackgroundHatchType>None</BackgroundHatchType>
+                    </Style>
+                  </FrameBackground>
+                  <FrameImage>
+                    <Source>External</Source>
+                    <Value />
+                  </FrameImage>
+                </BackFrame>
+                <TopImage>
+                  <Source>External</Source>
+                  <Value />
+                </TopImage>
+                <DataSetName>dsMemoryPending</DataSetName>
+                <Top>1.59513in</Top>
+                <Left>8.37361in</Left>
+                <Height>0.18393in</Height>
+                <Width>0.55717in</Width>
+                <ZIndex>24</ZIndex>
+                <Style>
+                  <Border>
+                    <Color>LightGrey</Color>
+                    <Style>None</Style>
+                  </Border>
+                  <BottomBorder>
+                    <Style>Solid</Style>
+                  </BottomBorder>
+                  <BackgroundColor>White</BackgroundColor>
+                </Style>
+              </GaugePanel>
+              <Textbox Name="Textbox93">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>Memory</Value>
+                        <Style>
+                          <FontSize>8pt</FontSize>
+                          <FontWeight>Bold</FontWeight>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Center</TextAlign>
+                    </Style>
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox93</rd:DefaultName>
+                <Top>3.60185cm</Top>
+                <Left>21.26897cm</Left>
+                <Height>0.44978cm</Height>
+                <Width>1.41521cm</Width>
+                <ZIndex>25</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <BottomBorder>
+                    <Color>LightGrey</Color>
+                    <Style>Solid</Style>
+                  </BottomBorder>
+                  <BackgroundColor>WhiteSmoke</BackgroundColor>
                   <PaddingLeft>2pt</PaddingLeft>
                   <PaddingRight>2pt</PaddingRight>
                   <PaddingTop>2pt</PaddingTop>
@@ -7036,7 +7394,7 @@ option (recompile,maxdop 1)</CommandText>
                               <FontWeight>Bold</FontWeight>
                             </Style>
                             <Label>=iif(Fields!Percentage.Value&gt;=1
-	,Fields!WaitType.Value + chr(10)+cstr(Fields!Percentage.Value)+"%"
+	,Fields!WaitType.Value + chr(10)+cstr(format(Fields!Percentage.Value,"##.#"))+"%"
 	,Nothing
 	)</Label>
                             <Visible>true</Visible>
@@ -7068,7 +7426,7 @@ option (recompile,maxdop 1)</CommandText>
                         </ChartDataLabel>
                       </ChartEmptyPoints>
                       <ChartItemInLegend>
-                        <LegendText>=Fields!WaitType.Value +" ["+cstr(Fields!Percentage.Value)+"%]"</LegendText>
+                        <LegendText>=Fields!WaitType.Value +" ["+cstr(format(Fields!Percentage.Value,"##.#"))+"%]"</LegendText>
                       </ChartItemInLegend>
                       <ValueAxisName>Primary</ValueAxisName>
                       <CategoryAxisName>Primary</CategoryAxisName>
@@ -7364,10 +7722,10 @@ option (recompile,maxdop 1)</CommandText>
                   </Style>
                 </ChartNoDataMessage>
                 <DataSetName>dsWaits</DataSetName>
-                <Top>0.03529cm</Top>
-                <Left>27.26704cm</Left>
+                <Top>0.07056cm</Top>
+                <Left>27.2574cm</Left>
                 <Height>11.75808cm</Height>
-                <Width>11.85149cm</Width>
+                <Width>10.12932cm</Width>
                 <ZIndex>2</ZIndex>
                 <Style>
                   <Border>
@@ -7786,11 +8144,1396 @@ option (recompile,maxdop 1)</CommandText>
                   <BackgroundGradientType>None</BackgroundGradientType>
                 </Style>
               </Chart>
+              <Rectangle Name="Rectangle7">
+                <ReportItems>
+                  <Textbox Name="Textbox85">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>QUERY STORE</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                              <FontWeight>Bold</FontWeight>
+                              <TextDecoration>Underline</TextDecoration>
+                              <Color>Blue</Color>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox85</rd:DefaultName>
+                    <ActionInfo>
+                      <Actions>
+                        <Action>
+                          <Drillthrough>
+                            <ReportName>QueryStore_Overview</ReportName>
+                          </Drillthrough>
+                        </Action>
+                      </Actions>
+                    </ActionInfo>
+                    <Top>0.3175cm</Top>
+                    <Left>0.19892cm</Left>
+                    <Height>0.52062cm</Height>
+                    <Width>5.60956cm</Width>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>WhiteSmoke</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox88">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Capture Mode</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>1.00385cm</Top>
+                    <Left>0.19892cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>1</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox92">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!capture_mode.Value, "dsQueryStore")</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>1.00385cm</Top>
+                    <Left>3.05662cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>2</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox94">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Status</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>3.12135cm</Top>
+                    <Left>0.19894cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>3</ZIndex>
+                    <ToolTip>="Operation mode of Query Store. "+chr(10)
++"Can be one of the following: "+chr(10)
++"- OFF"+chr(10)
++"- READ_ONLY"+chr(10)
++"- READ_WRITE"+chr(10)
++"- ERROR"</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox95">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=iif(First(Fields!state_actual.Value, "dsQueryStore")&lt;&gt;First(Fields!state_desired.Value, "dsQueryStore")
+	,First(Fields!state_actual.Value, "dsQueryStore")+" -&gt; "+First(Fields!state_desired.Value, "dsQueryStore")
+	,First(Fields!state_actual.Value, "dsQueryStore")
+	)</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>3.12135cm</Top>
+                    <Left>3.05664cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>4</ZIndex>
+                    <ToolTip>=iif(First(Fields!state_actual.Value, "dsQueryStore")="READ_ONLY"
+	,"Read-only reason: "+First(Fields!txt.Value, "dsQueryStore")
+	,Nothing
+	)</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox96">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Max Size</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>8.06219cm</Top>
+                    <Left>0.19894cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>5</ZIndex>
+                    <ToolTip>="Maximum disk size for the Query Store in megabytes (MB)."+chr(10)
++"Default value is 100 MB."</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox97">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=cstr(First(Fields!max_mb.Value, "dsQueryStore"))+" MB"</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>8.06219cm</Top>
+                    <Left>3.05665cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>6</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <BackgroundColor>=iif(First(Fields!max_mb.Value, "dsQueryStore")&lt;&gt;100
+	,"Orange"
+	,"White"
+	)</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox98">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Flush Interval</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>3.82719cm</Top>
+                    <Left>0.19894cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>7</ZIndex>
+                    <ToolTip>="The period for regular flushing of Query Store data to disk in seconds."+chr(10)
++" Default value is 900 (15 min)."</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox99">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=cstr(First(Fields!flush_sec.Value, "dsQueryStore"))+" s"</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>3.82719cm</Top>
+                    <Left>3.05665cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>8</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <BackgroundColor>=iif(First(Fields!flush_sec.Value, "dsQueryStore")&lt;&gt;900
+	,"Orange"
+	,"White"
+	)</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox100">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Agg Interval</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>4.53302cm</Top>
+                    <Left>0.19894cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>9</ZIndex>
+                    <ToolTip>="The statistics aggregation interval in minutes."+chr(10)
++"Allowed values: 1, 5, 10, 15, 30, 60 and 1440 minutes."+chr(10)
++"The default is 60 minutes."</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox101">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=cstr(First(Fields!interval_min.Value, "dsQueryStore"))+" min"</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>4.53302cm</Top>
+                    <Left>3.05665cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>10</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox102">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Max Plans/Query</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>5.23885cm</Top>
+                    <Left>0.19894cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>11</ZIndex>
+                    <ToolTip>="Limits the maximum number of stored plans. "+chr(10)
++"If the maximum value is reached, Query Store stops capturing new plans for that query. "+chr(10)
++"Setting to 0 removes the limitation with regards to the number of captured plans."+chr(10)
++"Default value is 200."</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox103">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!max_plans.Value, "dsQueryStore")</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>5.23885cm</Top>
+                    <Left>3.05665cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>12</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox104">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Stale Query Limit</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>5.94469cm</Top>
+                    <Left>0.19894cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>13</ZIndex>
+                    <ToolTip>="Number of days that queries with no policy settings are kept in Query Store."+chr(10)
++"Set to 0 to disable the retention policy."+chr(10)
++"Default value is 30."</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox105">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=cstr(First(Fields!stale_threshold.Value, "dsQueryStore"))+" days"</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>5.94469cm</Top>
+                    <Left>3.05665cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>14</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <BackgroundColor>=iif(First(Fields!stale_threshold.Value, "dsQueryStore")&lt;&gt;30
+	,"Orange"
+	,"White"
+	)</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox106">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Used &amp; Free (MB)</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>8.76802cm</Top>
+                    <Left>0.19894cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>5.60958cm</Width>
+                    <ZIndex>15</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Chart Name="DataBar1">
+                    <ChartCategoryHierarchy>
+                      <ChartMembers>
+                        <ChartMember>
+                          <Label />
+                        </ChartMember>
+                      </ChartMembers>
+                    </ChartCategoryHierarchy>
+                    <ChartSeriesHierarchy>
+                      <ChartMembers>
+                        <ChartMember>
+                          <Label>current mb</Label>
+                        </ChartMember>
+                        <ChartMember>
+                          <Label>current mb</Label>
+                        </ChartMember>
+                      </ChartMembers>
+                    </ChartSeriesHierarchy>
+                    <ChartData>
+                      <ChartSeriesCollection>
+                        <ChartSeries Name="current_mb">
+                          <ChartDataPoints>
+                            <ChartDataPoint>
+                              <ChartDataPointValues>
+                                <Y>=First(Fields!current_mb.Value)</Y>
+                              </ChartDataPointValues>
+                              <ChartDataLabel>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                </Style>
+                                <UseValueAsLabel>true</UseValueAsLabel>
+                                <Visible>true</Visible>
+                              </ChartDataLabel>
+                              <ToolTip>="Used "+cstr(Fields!current_mb.Value) + " of "+cstr(Fields!max_mb.Value) +" MBs."+chr(10)
++"Free "+cstr(Fields!max_mb.Value-Fields!current_mb.Value)+" MBs."</ToolTip>
+                              <Style>
+                                <Border>
+                                  <Color>Silver</Color>
+                                </Border>
+                                <Color>Silver</Color>
+                              </Style>
+                              <ChartMarker>
+                                <Style />
+                              </ChartMarker>
+                              <DataElementOutput>Output</DataElementOutput>
+                            </ChartDataPoint>
+                          </ChartDataPoints>
+                          <Type>Bar</Type>
+                          <Subtype>Stacked</Subtype>
+                          <Style />
+                          <ChartEmptyPoints>
+                            <Style />
+                            <ChartMarker>
+                              <Style />
+                            </ChartMarker>
+                            <ChartDataLabel>
+                              <Style />
+                            </ChartDataLabel>
+                          </ChartEmptyPoints>
+                          <ValueAxisName>Primary</ValueAxisName>
+                          <CategoryAxisName>Primary</CategoryAxisName>
+                          <ChartSmartLabel>
+                            <CalloutLineColor>Black</CalloutLineColor>
+                            <MinMovingDistance>0pt</MinMovingDistance>
+                          </ChartSmartLabel>
+                        </ChartSeries>
+                        <ChartSeries Name="max_mb">
+                          <ChartDataPoints>
+                            <ChartDataPoint>
+                              <ChartDataPointValues>
+                                <Y>=First(Fields!max_mb.Value)-First(Fields!current_mb.Value)</Y>
+                              </ChartDataPointValues>
+                              <ChartDataLabel>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                </Style>
+                                <UseValueAsLabel>true</UseValueAsLabel>
+                                <Visible>true</Visible>
+                              </ChartDataLabel>
+                              <ToolTip>="Used "+cstr(Fields!current_mb.Value) + " of "+cstr(Fields!max_mb.Value) + " MBs."+chr(10)
++"Free "+cstr(Fields!max_mb.Value-Fields!current_mb.Value)+" MBs."</ToolTip>
+                              <Style>
+                                <Border>
+                                  <Color>Silver</Color>
+                                </Border>
+                                <Color>WhiteSmoke</Color>
+                                <BackgroundGradientType>None</BackgroundGradientType>
+                              </Style>
+                              <ChartMarker>
+                                <Style />
+                              </ChartMarker>
+                              <DataElementOutput>Output</DataElementOutput>
+                            </ChartDataPoint>
+                          </ChartDataPoints>
+                          <Type>Bar</Type>
+                          <Subtype>Stacked</Subtype>
+                          <Style />
+                          <ChartEmptyPoints>
+                            <Style />
+                            <ChartMarker>
+                              <Style />
+                            </ChartMarker>
+                            <ChartDataLabel>
+                              <Style />
+                            </ChartDataLabel>
+                          </ChartEmptyPoints>
+                          <ValueAxisName>Primary</ValueAxisName>
+                          <CategoryAxisName>Primary</CategoryAxisName>
+                          <ChartSmartLabel>
+                            <CalloutLineColor>Black</CalloutLineColor>
+                            <MinMovingDistance>0pt</MinMovingDistance>
+                          </ChartSmartLabel>
+                        </ChartSeries>
+                      </ChartSeriesCollection>
+                    </ChartData>
+                    <ChartAreas>
+                      <ChartArea Name="Default">
+                        <ChartCategoryAxes>
+                          <ChartAxis Name="Primary">
+                            <Visible>False</Visible>
+                            <Style>
+                              <Border>
+                                <Color>Gainsboro</Color>
+                                <Style>None</Style>
+                              </Border>
+                              <FontSize>8pt</FontSize>
+                              <Color>#5c5c5c</Color>
+                            </Style>
+                            <ChartAxisTitle>
+                              <Caption />
+                              <Style>
+                                <FontSize>9pt</FontSize>
+                                <Color>#5c5c5c</Color>
+                              </Style>
+                            </ChartAxisTitle>
+                            <Margin>False</Margin>
+                            <ChartMajorGridLines>
+                              <Enabled>False</Enabled>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                            </ChartMajorGridLines>
+                            <ChartMinorGridLines>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>Dotted</Style>
+                                </Border>
+                              </Style>
+                            </ChartMinorGridLines>
+                            <ChartMajorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>None</Style>
+                                </Border>
+                              </Style>
+                            </ChartMajorTickMarks>
+                            <ChartMinorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                              <Length>0.5</Length>
+                            </ChartMinorTickMarks>
+                            <CrossAt>NaN</CrossAt>
+                            <Minimum>NaN</Minimum>
+                            <Maximum>NaN</Maximum>
+                            <ChartAxisScaleBreak>
+                              <Style />
+                            </ChartAxisScaleBreak>
+                          </ChartAxis>
+                          <ChartAxis Name="Secondary">
+                            <Visible>False</Visible>
+                            <Style>
+                              <Border>
+                                <Color>Gainsboro</Color>
+                                <Style>None</Style>
+                              </Border>
+                              <FontSize>8pt</FontSize>
+                              <Color>#5c5c5c</Color>
+                            </Style>
+                            <ChartAxisTitle>
+                              <Caption />
+                              <Style>
+                                <FontSize>9pt</FontSize>
+                                <Color>#5c5c5c</Color>
+                              </Style>
+                            </ChartAxisTitle>
+                            <Margin>False</Margin>
+                            <ChartMajorGridLines>
+                              <Enabled>False</Enabled>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                            </ChartMajorGridLines>
+                            <ChartMinorGridLines>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>Dotted</Style>
+                                </Border>
+                              </Style>
+                            </ChartMinorGridLines>
+                            <ChartMajorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>None</Style>
+                                </Border>
+                              </Style>
+                            </ChartMajorTickMarks>
+                            <ChartMinorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                              <Length>0.5</Length>
+                            </ChartMinorTickMarks>
+                            <CrossAt>NaN</CrossAt>
+                            <Location>Opposite</Location>
+                            <Minimum>NaN</Minimum>
+                            <Maximum>NaN</Maximum>
+                            <ChartAxisScaleBreak>
+                              <Style />
+                            </ChartAxisScaleBreak>
+                          </ChartAxis>
+                        </ChartCategoryAxes>
+                        <ChartValueAxes>
+                          <ChartAxis Name="Primary">
+                            <Visible>False</Visible>
+                            <Style>
+                              <Border>
+                                <Color>Gainsboro</Color>
+                                <Style>None</Style>
+                              </Border>
+                              <FontSize>8pt</FontSize>
+                              <Color>#5c5c5c</Color>
+                            </Style>
+                            <ChartAxisTitle>
+                              <Caption />
+                              <Style>
+                                <FontSize>9pt</FontSize>
+                                <Color>#5c5c5c</Color>
+                              </Style>
+                            </ChartAxisTitle>
+                            <ChartMajorGridLines>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                            </ChartMajorGridLines>
+                            <ChartMinorGridLines>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>Dotted</Style>
+                                </Border>
+                              </Style>
+                            </ChartMinorGridLines>
+                            <ChartMajorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>None</Style>
+                                </Border>
+                              </Style>
+                            </ChartMajorTickMarks>
+                            <ChartMinorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                              <Length>0.5</Length>
+                            </ChartMinorTickMarks>
+                            <CrossAt>NaN</CrossAt>
+                            <Minimum>0</Minimum>
+                            <Maximum>NaN</Maximum>
+                            <ChartAxisScaleBreak>
+                              <Style />
+                            </ChartAxisScaleBreak>
+                          </ChartAxis>
+                          <ChartAxis Name="Secondary">
+                            <Visible>False</Visible>
+                            <Style>
+                              <Border>
+                                <Color>Gainsboro</Color>
+                                <Style>None</Style>
+                              </Border>
+                              <FontSize>8pt</FontSize>
+                              <Color>#5c5c5c</Color>
+                            </Style>
+                            <ChartAxisTitle>
+                              <Caption />
+                              <Style>
+                                <FontSize>9pt</FontSize>
+                                <Color>#5c5c5c</Color>
+                              </Style>
+                            </ChartAxisTitle>
+                            <ChartMajorGridLines>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                            </ChartMajorGridLines>
+                            <ChartMinorGridLines>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>Dotted</Style>
+                                </Border>
+                              </Style>
+                            </ChartMinorGridLines>
+                            <ChartMajorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                  <Style>None</Style>
+                                </Border>
+                              </Style>
+                            </ChartMajorTickMarks>
+                            <ChartMinorTickMarks>
+                              <Style>
+                                <Border>
+                                  <Color>Gainsboro</Color>
+                                </Border>
+                              </Style>
+                              <Length>0.5</Length>
+                            </ChartMinorTickMarks>
+                            <CrossAt>NaN</CrossAt>
+                            <Location>Opposite</Location>
+                            <Minimum>NaN</Minimum>
+                            <Maximum>NaN</Maximum>
+                            <ChartAxisScaleBreak>
+                              <Style />
+                            </ChartAxisScaleBreak>
+                          </ChartAxis>
+                        </ChartValueAxes>
+                        <Style>
+                          <BackgroundColor>#00ffffff</BackgroundColor>
+                          <BackgroundGradientType>None</BackgroundGradientType>
+                        </Style>
+                        <ChartElementPosition>
+                          <Top>10</Top>
+                          <Left>3</Left>
+                          <Height>80</Height>
+                          <Width>96</Width>
+                        </ChartElementPosition>
+                      </ChartArea>
+                    </ChartAreas>
+                    <Palette>BrightPastel</Palette>
+                    <ChartBorderSkin>
+                      <Style>
+                        <BackgroundColor>Gray</BackgroundColor>
+                        <BackgroundGradientType>None</BackgroundGradientType>
+                        <Color>White</Color>
+                      </Style>
+                    </ChartBorderSkin>
+                    <ChartNoDataMessage Name="NoDataMessage">
+                      <Caption>No Data Available</Caption>
+                      <Style>
+                        <BackgroundGradientType>None</BackgroundGradientType>
+                        <FontWeight>Bold</FontWeight>
+                        <TextAlign>General</TextAlign>
+                        <VerticalAlign>Top</VerticalAlign>
+                      </Style>
+                    </ChartNoDataMessage>
+                    <rd:DesignerMode>DataBar</rd:DesignerMode>
+                    <DataSetName>dsQueryStore</DataSetName>
+                    <Top>9.47386cm</Top>
+                    <Left>0.19895cm</Left>
+                    <Height>0.73234cm</Height>
+                    <Width>6.58906cm</Width>
+                    <ZIndex>16</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BackgroundColor>White</BackgroundColor>
+                      <BackgroundGradientType>None</BackgroundGradientType>
+                    </Style>
+                  </Chart>
+                  <Textbox Name="Textbox108">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Max Size Cleanup</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>1.70969cm</Top>
+                    <Left>0.19892cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>17</ZIndex>
+                    <ToolTip>="Controls whether cleanup will be automatically activated when total amount of data gets close to maximum size:"+chr(10)
++"OFF - size-based cleanup won't be automatically activated."+chr(10)
++"AUTO - size-based cleanup will be automatically activated when size on disk reaches 90% of max_storage_size_mb. "+chr(10)
++"This is the default configuration value."+chr(10)+chr(10)
++"Size-based cleanup removes the least expensive and oldest queries first."+chr(10)
++"It stops when approximately 80% of max_storage_size_mb is reached."</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox109">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!size_based_cleanup.Value, "dsQueryStore")</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>1.70969cm</Top>
+                    <Left>3.05664cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>18</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox110">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Forced Plans </Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>6.65052cm</Top>
+                    <Left>0.19896cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>19</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox111">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!plans_forced.Value, "dsQueryStore")</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>6.65052cm</Top>
+                    <Left>3.05667cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>20</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox112">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Force Failed</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>7.35636cm</Top>
+                    <Left>0.19896cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>21</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox113">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!force_failed.Value, "dsQueryStore")</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>7.35636cm</Top>
+                    <Left>3.05668cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>22</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                      </BottomBorder>
+                      <BackgroundColor>=iif(First(Fields!force_failed.Value, "dsQueryStore")&gt;0
+	,"Tomato"
+	,"White"
+	)</BackgroundColor>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox114">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Wait Stats Capture</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>2.41552cm</Top>
+                    <Left>0.19893cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>23</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox115">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>=First(Fields!wait_stats_capture.Value, "dsQueryStore")</Value>
+                            <Style>
+                              <FontSize>9pt</FontSize>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox88</rd:DefaultName>
+                    <Top>2.41552cm</Top>
+                    <Left>3.05664cm</Left>
+                    <Height>0.6cm</Height>
+                    <Width>2.75186cm</Width>
+                    <ZIndex>24</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <BottomBorder>
+                        <Color>LightGrey</Color>
+                        <Style>Solid</Style>
+                        <Width>1pt</Width>
+                      </BottomBorder>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                </ReportItems>
+                <KeepTogether>true</KeepTogether>
+                <Top>0.07056cm</Top>
+                <Left>37.422cm</Left>
+                <Height>11.72281cm</Height>
+                <Width>6.78801cm</Width>
+                <ZIndex>4</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Rectangle>
             </ReportItems>
             <KeepTogether>true</KeepTogether>
             <Top>2.07514in</Top>
             <Height>4.71503in</Height>
-            <Width>15.61672in</Width>
+            <Width>17.40552in</Width>
             <ZIndex>1</ZIndex>
             <Style>
               <Border>
@@ -8276,8 +10019,8 @@ option (recompile,maxdop 1)</CommandText>
                   </TablixMembers>
                 </TablixRowHierarchy>
                 <DataSetName>dsBackups</DataSetName>
-                <Top>0.06432in</Top>
-                <Left>2.88889in</Left>
+                <Top>0.06525in</Top>
+                <Left>2.87639in</Left>
                 <Height>0.44792in</Height>
                 <Width>2.57341in</Width>
                 <ZIndex>1</ZIndex>
@@ -9444,7 +11187,21 @@ option (recompile,maxdop 1)</CommandText>
                                 <Paragraph>
                                   <TextRuns>
                                     <TextRun>
-                                      <Value>Granted Query Memory (MB)</Value>
+                                      <Value>Granted</Value>
+                                      <Style>
+                                        <FontSize>9pt</FontSize>
+                                        <FontWeight>Bold</FontWeight>
+                                      </Style>
+                                    </TextRun>
+                                  </TextRuns>
+                                  <Style>
+                                    <TextAlign>Center</TextAlign>
+                                  </Style>
+                                </Paragraph>
+                                <Paragraph>
+                                  <TextRuns>
+                                    <TextRun>
+                                      <Value>Memory (MB)</Value>
                                       <Style>
                                         <FontSize>9pt</FontSize>
                                         <FontWeight>Bold</FontWeight>
@@ -9719,6 +11476,17 @@ option (recompile,maxdop 1)</CommandText>
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>running</rd:DefaultName>
+                              <ToolTip>=lookup(Fields!spid.Value
+		,Fields!session_id.Value
+		,"Waited: "+Fields!waited.Value+chr(10)
+			+"Query cost: "+cstr(Fields!query_cost.Value)+chr(10)
+			+"Requested Memory (KB): " +format(cint(Fields!requested_memory_kb.Value),"#,###")+chr(10)
+			+"Granted Memory (KB)  : " +format(cint(Fields!granted_memory_kb.Value),"#,###")+chr(10)
+			+"Required Memory (KB) : " +format(cint(Fields!required_memory_kb.Value),"#,###")+chr(10)
+			+"Used Memory (KB)     : " +format(cint(Fields!used_memory_kb.Value),"#,###")+chr(10)
+			+"Max Used Memory (KB) : " +format(cint(Fields!max_used_memory_kb.Value),"#,###")
+		,"dsMemoryPendingDetails"
+		)</ToolTip>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>
@@ -10283,7 +12051,7 @@ option (recompile,maxdop 1)</CommandText>
         <Height>21.63296cm</Height>
         <Style />
       </Body>
-      <Width>43.547cm</Width>
+      <Width>45.1096cm</Width>
       <Page>
         <PageHeight>50cm</PageHeight>
         <PageWidth>50cm</PageWidth>
@@ -10347,6 +12115,25 @@ option (recompile,maxdop 1)</CommandText>
       </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
+  <EmbeddedImages>
+    <EmbeddedImage Name="pic_start">
+      <MIMEType>image/jpeg</MIMEType>
+      <ImageData>/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAIBAQIBAQICAgICAgICAwUDAwMDAwYEBAMFBwYHBwcGBwcICQsJCAgKCAcHCg0KCgsMDAwMBwkODw0MDgsMDAz/2wBDAQICAgMDAwYDAwYMCAcIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAz/wAARCAAdAB0DASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD91/ip4/j+GPgi81qS2N0LXaBEJPL3lmC/ewcdfQ1mfCb47eH/AIwWR/s24Ed/EuZ7GVgJo/UgfxL/ALQ9RnB4rD/bLdk/Z21sr97fAB/39Svivw6bjSNat7xd
+Q/s28hYPFIk/lSofVec18PxBxLVyzMIxlZ0nFNrRO93qn6dHofn/ABJxZXyrM4UuVSpuKbWzu21dP5bPT0P0oB4orxT4B/tEXXiJLLTdckt7y5uXEEF5AQHlc5IDoOvAPzKOOpGAWr2sV9RlmaYfH0FiMLK8dvR9j7LLcyoY6gsRh3dP8PI8t/bHsZ9U/Z81q3tmaO4maAIy/eH71On6182fA/8AZivfFl5iztlkWNytzezk/Z7dh1BbrI4/uLznG4oCDX2zrWjWviDT5LK+t4bu0nXbJDMgdHGcjIPHUA/UVJpmmW+kafDa2tvDbWtugjihhjEccSjgKqjgAegr5nPeCcPm+ZQxmMm3TjFLkWl3du7fbXZWfmfP5vwfhsyzGGNxTvGMUuXvZt3b+f8AwTk/hj8FdH+F8HmW8Zu9SZNkt9Mo8wjuqDpGn+yvXA3FjzXaL0oxRX1+GwtHD0lRoRUYx0SSsl8j6ihQp0YKnSioxWyWx//Z</ImageData>
+    </EmbeddedImage>
+    <EmbeddedImage Name="pic_stop">
+      <MIMEType>image/jpeg</MIMEType>
+      <ImageData>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</ImageData>
+    </EmbeddedImage>
+    <EmbeddedImage Name="pic_view">
+      <MIMEType>image/png</MIMEType>
+      <ImageData>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</ImageData>
+    </EmbeddedImage>
+  </EmbeddedImages>
   <rd:ReportUnitType>Cm</rd:ReportUnitType>
   <rd:ReportID>c16bd6ed-20a5-4ad9-8f33-2084bbb76c89</rd:ReportID>
 </Report>
