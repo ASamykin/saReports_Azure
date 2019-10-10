@@ -326,39 +326,7 @@ option (recompile)</CommandText>
     <DataSet Name="dsServiceChange">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>/*
-with recs as 
-(
-	select 
-		ROW_NUMBER() over (order by database_name, end_time asc) [n]
-		,end_time 
-		,dtu_limit
-		,sku
-		,database_name
-	from sys.resource_stats
-),
-recs2 as 
-(
-	select 
-		--t1.*,t2.*
-		t1.database_name [db]
-		,t2.end_time [date]
-		,left(convert(varchar(20),t1.end_time,106),6)+' '+convert(varchar(20),t1.end_time,108)+' - '+left(convert(varchar(20),t2.end_time,106),6)+' '+convert(varchar(20),t2.end_time,108) [period]
-		,convert(varchar(30),t1.sku)+' ('+convert(varchar(10),t1.dtu_limit)+ ') -&gt; '+convert(varchar(30),t2.sku)+' ('+convert(varchar(10),t2.dtu_limit)+')' [servicechange]
-	from recs t1 
-	join recs t2 on 
-			t2.n=t1.n+1 
-			and t2.database_name=t1.database_name
-			and t2.dtu_limit&lt;&gt;t1.dtu_limit
-)
-select 
-	db
-	,STRING_AGG(' * '+[period]+ ' : '+[servicechange],char(10)) within group (order by [date] asc) [desc]
-from recs2 
-group by db
-option (recompile)
-*/
-/*new version with LAG()*/
+        <CommandText>/*new version with LAG()*/
 with data as (
 select 
 	database_name [db]
@@ -372,7 +340,7 @@ select
 		,convert(varchar(20),dt,106)+' '+convert(varchar(10),dt,108) +' : '+[service]+' -&gt; '+[new] [desc]
 from data 
 where [service]&lt;&gt;[new]
-order by 1,2 desc
+order by 1,dt desc
 option (recompile)</CommandText>
       </Query>
       <Fields>
@@ -1507,7 +1475,6 @@ and database_id&gt;4</CommandText>
                             <TopBorder>
                               <Style>Solid</Style>
                             </TopBorder>
-                            <BackgroundColor>White</BackgroundColor>
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
                         </Chart>
@@ -1923,7 +1890,6 @@ and database_id&gt;4</CommandText>
                               <Color>LightGrey</Color>
                               <Style>None</Style>
                             </Border>
-                            <BackgroundColor>White</BackgroundColor>
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
                         </Chart>
@@ -2349,7 +2315,6 @@ and database_id&gt;4</CommandText>
                             <BottomBorder>
                               <Style>Solid</Style>
                             </BottomBorder>
-                            <BackgroundColor>White</BackgroundColor>
                             <BackgroundGradientType>None</BackgroundGradientType>
                           </Style>
                         </Chart>
@@ -2636,6 +2601,7 @@ and database_id&gt;4</CommandText>
                               <PaddingBottom>2pt</PaddingBottom>
                             </Style>
                           </Textbox>
+                          <rd:Selected>true</rd:Selected>
                         </CellContents>
                       </TablixHeader>
                       <TablixMembers>
@@ -2794,7 +2760,7 @@ and database_id&gt;4</CommandText>
 					, "dsServiceChange"
 					)
 				)=true
-		,"Transparent"
+		,"White"
 		,"Orange"
 		)</BackgroundColor>
                                           <VerticalAlign>Middle</VerticalAlign>
@@ -2961,7 +2927,7 @@ and database_id&gt;4</CommandText>
 		, "dsConnections"
 		)&gt;0
 	,"#ff8e8e"
-	,"Transparent"
+	,"White"
 	)</BackgroundColor>
                                                       <VerticalAlign>Middle</VerticalAlign>
                                                       <PaddingLeft>2pt</PaddingLeft>
@@ -3078,7 +3044,7 @@ and database_id&gt;4</CommandText>
 						,"dsDeadlocks"
 						)
 				)=true
-	,"Transparent"
+	,"White"
 	,"Tomato"
 	)</BackgroundColor>
                                                               <VerticalAlign>Middle</VerticalAlign>

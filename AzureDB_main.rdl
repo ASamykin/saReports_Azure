@@ -6214,118 +6214,6 @@ join data d on so.readonly_reason=d.n</CommandText>
                   </Border>
                 </Style>
               </Rectangle>
-              <Textbox Name="Textbox89">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Performance</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                          <TextDecoration>Underline</TextDecoration>
-                          <Color>Blue</Color>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Counters</Value>
-                        <Style>
-                          <FontWeight>Bold</FontWeight>
-                          <TextDecoration>Underline</TextDecoration>
-                          <Color>Blue</Color>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox89</rd:DefaultName>
-                <ActionInfo>
-                  <Actions>
-                    <Action>
-                      <Drillthrough>
-                        <ReportName>PerfmonCounters</ReportName>
-                      </Drillthrough>
-                    </Action>
-                  </Actions>
-                </ActionInfo>
-                <Top>0.10579cm</Top>
-                <Left>39.69885cm</Left>
-                <Height>1.12891cm</Height>
-                <Width>2.5cm</Width>
-                <ZIndex>22</ZIndex>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <VerticalAlign>Middle</VerticalAlign>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
-              <Textbox Name="Textbox90">
-                <CanGrow>true</CanGrow>
-                <KeepTogether>true</KeepTogether>
-                <Paragraphs>
-                  <Paragraph>
-                    <TextRuns>
-                      <TextRun>
-                        <Value>Firewall</Value>
-                        <Style>
-                          <TextDecoration>Underline</TextDecoration>
-                          <Color>=iif(First(Fields!n.Value, "dsDBFirewallRules")=0
-	,"Grey"
-	,"Blue"
-	)</Color>
-                        </Style>
-                      </TextRun>
-                    </TextRuns>
-                    <Style>
-                      <TextAlign>Center</TextAlign>
-                    </Style>
-                  </Paragraph>
-                </Paragraphs>
-                <rd:DefaultName>Textbox90</rd:DefaultName>
-                <ActionInfo>
-                  <Actions>
-                    <Action>
-                      <Drillthrough>
-                        <ReportName>FirewallSettings</ReportName>
-                      </Drillthrough>
-                    </Action>
-                  </Actions>
-                </ActionInfo>
-                <Top>1.41108cm</Top>
-                <Left>39.69885cm</Left>
-                <Height>0.6cm</Height>
-                <Width>2.5cm</Width>
-                <ZIndex>23</ZIndex>
-                <ToolTip>=iif(First(Fields!n.Value, "dsDBFirewallRules")&gt;0
-	,cstr(First(Fields!n.Value, "dsDBFirewallRules"))+" rules configured."
-	,Nothing
-	)</ToolTip>
-                <Style>
-                  <Border>
-                    <Style>None</Style>
-                  </Border>
-                  <PaddingLeft>2pt</PaddingLeft>
-                  <PaddingRight>2pt</PaddingRight>
-                  <PaddingTop>2pt</PaddingTop>
-                  <PaddingBottom>2pt</PaddingBottom>
-                </Style>
-              </Textbox>
               <GaugePanel Name="GaugePanel1">
                 <StateIndicators>
                   <StateIndicator Name="Indicator1">
@@ -6466,7 +6354,7 @@ join data d on so.readonly_reason=d.n</CommandText>
                 <Left>8.37361in</Left>
                 <Height>0.18393in</Height>
                 <Width>0.55717in</Width>
-                <ZIndex>24</ZIndex>
+                <ZIndex>22</ZIndex>
                 <Style>
                   <Border>
                     <Color>LightGrey</Color>
@@ -6502,7 +6390,7 @@ join data d on so.readonly_reason=d.n</CommandText>
                 <Left>21.26897cm</Left>
                 <Height>0.44978cm</Height>
                 <Width>1.41521cm</Width>
-                <ZIndex>25</ZIndex>
+                <ZIndex>23</ZIndex>
                 <Style>
                   <Border>
                     <Style>None</Style>
@@ -6518,6 +6406,178 @@ join data d on so.readonly_reason=d.n</CommandText>
                   <PaddingBottom>2pt</PaddingBottom>
                 </Style>
               </Textbox>
+              <Rectangle Name="Rectangle8">
+                <ReportItems>
+                  <Textbox Name="Textbox89">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Performance</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                              <TextDecoration>Underline</TextDecoration>
+                              <Color>Blue</Color>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Counters</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                              <TextDecoration>Underline</TextDecoration>
+                              <Color>Blue</Color>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox89</rd:DefaultName>
+                    <ActionInfo>
+                      <Actions>
+                        <Action>
+                          <Drillthrough>
+                            <ReportName>PerfmonCounters</ReportName>
+                          </Drillthrough>
+                        </Action>
+                      </Actions>
+                    </ActionInfo>
+                    <Top>0cm</Top>
+                    <Left>0cm</Left>
+                    <Height>1.12891cm</Height>
+                    <Width>2.5cm</Width>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <VerticalAlign>Middle</VerticalAlign>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox90">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Firewall</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                              <TextDecoration>Underline</TextDecoration>
+                              <Color>=iif(First(Fields!n.Value, "dsDBFirewallRules")=0
+	,"Grey"
+	,"Blue"
+	)</Color>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox90</rd:DefaultName>
+                    <ActionInfo>
+                      <Actions>
+                        <Action>
+                          <Drillthrough>
+                            <ReportName>FirewallSettings</ReportName>
+                          </Drillthrough>
+                        </Action>
+                      </Actions>
+                    </ActionInfo>
+                    <Top>1.30529cm</Top>
+                    <Left>0cm</Left>
+                    <Height>0.46771cm</Height>
+                    <Width>2.5cm</Width>
+                    <ZIndex>1</ZIndex>
+                    <ToolTip>=iif(First(Fields!n.Value, "dsDBFirewallRules")&gt;0
+	,cstr(First(Fields!n.Value, "dsDBFirewallRules"))+" rules configured."
+	,Nothing
+	)</ToolTip>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                  <Textbox Name="Textbox107">
+                    <CanGrow>true</CanGrow>
+                    <KeepTogether>true</KeepTogether>
+                    <Paragraphs>
+                      <Paragraph>
+                        <TextRuns>
+                          <TextRun>
+                            <Value>Ring Buffer</Value>
+                            <Style>
+                              <FontWeight>Bold</FontWeight>
+                              <TextDecoration>Underline</TextDecoration>
+                              <Color>Blue</Color>
+                            </Style>
+                          </TextRun>
+                        </TextRuns>
+                        <Style>
+                          <TextAlign>Center</TextAlign>
+                        </Style>
+                      </Paragraph>
+                    </Paragraphs>
+                    <rd:DefaultName>Textbox90</rd:DefaultName>
+                    <ActionInfo>
+                      <Actions>
+                        <Action>
+                          <Drillthrough>
+                            <ReportName>RingBuffer_Overview</ReportName>
+                          </Drillthrough>
+                        </Action>
+                      </Actions>
+                    </ActionInfo>
+                    <Top>1.8959cm</Top>
+                    <Left>0cm</Left>
+                    <Height>0.46771cm</Height>
+                    <Width>2.5cm</Width>
+                    <ZIndex>2</ZIndex>
+                    <Style>
+                      <Border>
+                        <Style>None</Style>
+                      </Border>
+                      <PaddingLeft>2pt</PaddingLeft>
+                      <PaddingRight>2pt</PaddingRight>
+                      <PaddingTop>2pt</PaddingTop>
+                      <PaddingBottom>2pt</PaddingBottom>
+                    </Style>
+                  </Textbox>
+                </ReportItems>
+                <KeepTogether>true</KeepTogether>
+                <Top>0.07051cm</Top>
+                <Left>39.5801cm</Left>
+                <Height>2.36361cm</Height>
+                <Width>2.61875cm</Width>
+                <ZIndex>24</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Rectangle>
             </ReportItems>
             <KeepTogether>true</KeepTogether>
             <Top>0.06819in</Top>
@@ -12051,7 +12111,7 @@ join data d on so.readonly_reason=d.n</CommandText>
         <Height>21.63296cm</Height>
         <Style />
       </Body>
-      <Width>45.1096cm</Width>
+      <Width>44.4746cm</Width>
       <Page>
         <PageHeight>50cm</PageHeight>
         <PageWidth>50cm</PageWidth>

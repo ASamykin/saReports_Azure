@@ -433,6 +433,7 @@ option (recompile)</CommandText>
 	,convert(smalldatetime,rsi.end_time) [end_time]
 	,count(DISTINCT p.query_id) [n]
 	,sum(rs.count_executions) [execs]
+	,sum(iif(rs.execution_type_desc&lt;&gt;'Regular',1,0)) [execs_failed]
 FROM sys.query_store_plan p
 INNER JOIN sys.query_store_runtime_stats rs ON rs.plan_id = p.plan_id
 INNER JOIN sys.query_store_runtime_stats_interval rsi ON rs.runtime_stats_interval_id = rsi.runtime_stats_interval_id
@@ -464,6 +465,10 @@ GROUP BY
         </Field>
         <Field Name="execs">
           <DataField>execs</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="execs_failed">
+          <DataField>execs_failed</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -2322,7 +2327,6 @@ from data </CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
-                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>
@@ -8320,6 +8324,9 @@ from data </CommandText>
                               </Action>
                             </Actions>
                           </ActionInfo>
+                          <ToolTip>="Executions"+chr(10)
++"successful :"+cstr(Fields!execs.Value-Fields!execs_failed.Value)+chr(10)
++"failed : "+cstr(Fields!execs_failed.Value)</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -8334,11 +8341,13 @@ from data </CommandText>
                             <RightBorder>
                               <Style>None</Style>
                             </RightBorder>
-                            <BackgroundColor>=iif(Fields!start_time.Value=Parameters!parDate.Value
-	,iif(Fields!end_time.Value=Parameters!parDateSecond.Value
+                            <BackgroundColor>=iif(Fields!start_time.Value=Parameters!parDate.Value AND 
+	 Fields!end_time.Value=Parameters!parDateSecond.Value
 		,"Khaki"
-		,"White")
-	,"White"
+		,iif(Fields!execs_failed.Value&gt;0
+			,"Tomato"
+			,"White"
+			)
 	)</BackgroundColor>
                             <PaddingLeft>2pt</PaddingLeft>
                             <PaddingRight>2pt</PaddingRight>
@@ -8346,6 +8355,7 @@ from data </CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>

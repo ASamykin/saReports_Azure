@@ -288,6 +288,34 @@ option (recompile)</CommandText>
         </Field>
       </Fields>
     </DataSet>
+    <DataSet Name="dsQueryStore">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>;with act as 
+(select des.session_id
+, st.text 
+from sys.dm_exec_sessions  des
+left join sys.dm_exec_requests der on des.session_id=der.session_id
+outer APPLY sys.dm_exec_sql_text(der.sql_handle) st
+where des.status='running' and des.database_id=db_id())
+select 
+	a.session_id
+	,q.query_id
+from sys.query_store_query q
+join sys.query_store_query_text qt on q.query_text_id=qt.query_text_id
+join act a on qt.query_sql_text=a.[text]</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="session_id">
+          <DataField>session_id</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="query_id">
+          <DataField>query_id</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
   </DataSets>
   <ReportSections>
     <ReportSection>
@@ -1564,6 +1592,15 @@ option (recompile)</CommandText>
                                   <Value>=Fields!spid.Value</Value>
                                   <Style>
                                     <FontSize>8pt</FontSize>
+                                    <TextDecoration>=iif(isNothing(lookup(Fields!spid.Value
+					,Fields!session_id.Value
+					,Fields!query_id.Value
+					,"dsQueryStore"
+					)
+			)&lt;&gt;true
+	,"Underline"
+	,"Default"
+	)</TextDecoration>
                                     <Color>=iif(Fields!status.Value="running","Blue","DimGrey")</Color>
                                   </Style>
                                 </TextRun>
@@ -1574,6 +1611,33 @@ option (recompile)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>spid</rd:DefaultName>
+                          <ActionInfo>
+                            <Actions>
+                              <Action>
+                                <Drillthrough>
+                                  <ReportName>=iif(isNothing(lookup(Fields!spid.Value
+					,Fields!session_id.Value
+					,Fields!query_id.Value
+					,"dsQueryStore"
+					)
+			)=false
+			,"QueryStore_Plans" 
+			,Nothing
+		)</ReportName>
+                                  <Parameters>
+                                    <Parameter Name="parQueryID">
+                                      <Value>=lookup(Fields!spid.Value
+					,Fields!session_id.Value
+					,Fields!query_id.Value
+					,"dsQueryStore"
+					)</Value>
+                                    </Parameter>
+                                  </Parameters>
+                                </Drillthrough>
+                              </Action>
+                            </Actions>
+                          </ActionInfo>
+                          <ToolTip>Click to see QueryStore information for the query</ToolTip>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -1592,6 +1656,7 @@ option (recompile)</CommandText>
                             <PaddingBottom>2pt</PaddingBottom>
                           </Style>
                         </Textbox>
+                        <rd:Selected>true</rd:Selected>
                       </CellContents>
                     </TablixCell>
                     <TablixCell>

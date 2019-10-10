@@ -111,6 +111,7 @@ group by n</CommandText>
 	,p.last_compile_duration
 	,p.plan_forcing_type_desc
 	,(select sum(count_executions) from sys.query_store_runtime_stats rs where rs.plan_id=p.plan_id) [used]
+	,DATALENGTH(p.query_plan) [size_bytes]
 FROM sys.query_store_plan p
 INNER JOIN sys.query_store_query q ON p.query_id = q.query_id
 INNER JOIN sys.query_store_query_text qt ON q.query_text_id = qt.query_text_id
@@ -204,6 +205,10 @@ OPTION (RECOMPILE)</CommandText>
         </Field>
         <Field Name="used">
           <DataField>used</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="size_bytes">
+          <DataField>size_bytes</DataField>
           <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
@@ -369,6 +374,9 @@ OPTION (RECOMPILE)</CommandText>
                             </Action>
                           </Actions>
                         </ActionInfo>
+                        <ToolTip>="There are "+cstr(Fields!queries.Value) 
++" queries with " +cstr(Fields!cnt.Value)
++" execution plans per each."</ToolTip>
                         <Style>
                           <Border>
                             <Color>LightGrey</Color>
@@ -515,6 +523,9 @@ OPTION (RECOMPILE)</CommandText>
                 </TablixColumn>
                 <TablixColumn>
                   <Width>1in</Width>
+                </TablixColumn>
+                <TablixColumn>
+                  <Width>0.83333in</Width>
                 </TablixColumn>
               </TablixColumns>
               <TablixRows>
@@ -1340,6 +1351,56 @@ OPTION (RECOMPILE)</CommandText>
                             </Paragraph>
                           </Paragraphs>
                           <rd:DefaultName>Textbox40</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <BackgroundColor>WhiteSmoke</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox10">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>Plan Size</Value>
+                                  <Style>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>(KB)</Value>
+                                  <Style>
+                                    <FontSize>9pt</FontSize>
+                                    <FontWeight>Bold</FontWeight>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox10</rd:DefaultName>
                           <Style>
                             <Border>
                               <Color>LightGrey</Color>
@@ -2231,6 +2292,54 @@ OPTION (RECOMPILE)</CommandText>
                         </Textbox>
                       </CellContents>
                     </TablixCell>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="size_bytes">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!size_bytes.Value/1024</Value>
+                                  <Style>
+                                    <FontSize>8pt</FontSize>
+                                    <Format>#,0.0;(#,0.0)</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Right</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>size_bytes</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Style>None</Style>
+                            </TopBorder>
+                            <LeftBorder>
+                              <Style>None</Style>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Style>None</Style>
+                            </RightBorder>
+                            <BackgroundColor>=iif(rownumber(Nothing)/2 &lt;&gt; floor(rownumber(Nothing)/2)
+		,"Transparent"
+		,"WhiteSmoke"
+		)</BackgroundColor>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
                   </TablixCells>
                 </TablixRow>
               </TablixRows>
@@ -2264,6 +2373,7 @@ OPTION (RECOMPILE)</CommandText>
                     <ToggleItem>txtForced</ToggleItem>
                   </Visibility>
                 </TablixMember>
+                <TablixMember />
                 <TablixMember />
                 <TablixMember />
                 <TablixMember />
@@ -2483,6 +2593,7 @@ OPTION (RECOMPILE)</CommandText>
                                     <Value>=iif(Fields!is_system.Value=1,"system","user")</Value>
                                     <Style>
                                       <FontSize>8pt</FontSize>
+                                      <Color>=iif(Fields!is_system.Value=1,"Blue","Black")</Color>
                                     </Style>
                                   </TextRun>
                                 </TextRuns>
@@ -2593,10 +2704,10 @@ OPTION (RECOMPILE)</CommandText>
               </TablixMembers>
             </TablixRowHierarchy>
             <DataSetName>dsPlanDetails</DataSetName>
-            <Top>0.67584in</Top>
+            <Top>0.93208in</Top>
             <Left>0.01958in</Left>
             <Height>0.5in</Height>
-            <Width>19.75473in</Width>
+            <Width>20.58806in</Width>
             <ZIndex>1</ZIndex>
             <Style>
               <Border>
@@ -2604,11 +2715,50 @@ OPTION (RECOMPILE)</CommandText>
               </Border>
             </Style>
           </Tablix>
+          <Textbox Name="Textbox4">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>=" Query Id(s): " +Parameters!parQueryID.Value
++iif(isNothing(Parameters!parPlans.Value)=false
+	,";   Plan Id(s): "+Parameters!parPlans.Value
+	,""
+	)</Value>
+                    <Style>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style />
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox4</rd:DefaultName>
+            <Top>0.64041in</Top>
+            <Left>0.02778in</Left>
+            <Height>0.25in</Height>
+            <Width>4.86111in</Width>
+            <ZIndex>2</ZIndex>
+            <Visibility>
+              <Hidden>=iif(isNothing(Parameters!parQueryID.Value)=false,false,true)</Hidden>
+            </Visibility>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
         </ReportItems>
         <Height>3.77083in</Height>
         <Style />
       </Body>
-      <Width>20.44097in</Width>
+      <Width>20.77431in</Width>
       <Page>
         <PageHeader>
           <Height>0.76042in</Height>
@@ -2639,7 +2789,7 @@ OPTION (RECOMPILE)</CommandText>
                 <Actions>
                   <Action>
                     <Drillthrough>
-                      <ReportName>QueryStore_Plans</ReportName>
+                      <ReportName>QueryStore_Overview</ReportName>
                     </Drillthrough>
                   </Action>
                 </Actions>

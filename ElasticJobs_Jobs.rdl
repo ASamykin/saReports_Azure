@@ -50,6 +50,7 @@ exec jobs.sp_update_job @job_name=@name,@enabled=@enable
 		,end_time
 		,last_message
 		,is_active
+		,create_time
 from [jobs].[job_executions]
 where step_id is null)
 select
@@ -61,7 +62,12 @@ select
 	,vj.[enabled]
 	,(select count(1) from [jobs].[jobsteps] js where js.job_id=vj.job_id) [steps]
 	,'Each '+convert(varchar(10),vj.schedule_interval_count)+' '+vj.schedule_interval_type [runs]
-	,isnull(convert(varchar(20),je.start_time AT TIME ZONE 'UTC' AT TIME ZONE 'Central Europe Standard Time',113),'running now') [last_run]
+	,case 
+		when je.start_time is null and je.create_time is not null then 'running now' 
+		when je.start_time is null and je.create_time is  null then 'to be started at '+char(10)+convert(varchar(20),vj.schedule_start_time,100)
+		else convert(varchar(20),je.start_time AT TIME ZONE 'UTC' AT TIME ZONE 'Central Europe Standard Time',113) 
+	end [last_run]
+
 	,case 
 		when datediff(ss,je.start_time,je.end_time)&gt;86400 then cast(datediff(dd,je.start_time,je.end_time) as varchar(10))+'d ' else '' end
 	+
@@ -74,8 +80,7 @@ from [jobs_internal].[visible_jobs] vj
 left join last_runs je
 	on vj.name=je.job_name and je.n=1
 left join jobs.jobs j
-	on j.job_id=vj.job_id
-</CommandText>
+	on j.job_id=vj.job_id</CommandText>
       </Query>
       <Fields>
         <Field Name="job_id">

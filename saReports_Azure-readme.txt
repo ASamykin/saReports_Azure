@@ -1,3 +1,11 @@
+[10-10-2019]
+* RingBuffer_Overview :  new report created to analyze content of sys.dm_os_ring_buffers 
+* AzureDB_main : added link to RingBuffer_Overview report
+
+[08-10-2019]
+* ElasticJobs_Jobs : updated query to show status of "Last Run"; now it shows "not executed yet" for the jobs created recently and not run yet
+* Sessions : added link to QueryStore information for an active query (click on SPID)
+
 [03-10-2019]
 * QueryStore_Overview : new report to analyze QueryStore configuration and content
 * QueryStore_Queries : new report to see content of QueryStore and execution stats 
@@ -15,7 +23,7 @@
 [26-08-2019]
 * AzureDB_main :  added Indicator of processes pending for memory
 * ElasticJobs_Overview : minor formatting enhancements
-* ElasticJobs_Jobs :
+* ElasticJobs_Jobs : added link to ElasticJobs_Targets
 * ElasticJobs_Targets : new report is created to show targets 
 
 [20-08-2019]

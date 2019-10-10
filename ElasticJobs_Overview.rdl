@@ -2930,6 +2930,8 @@ group by lifecycle
                                       <Value>=Fields!lifecycle.Value</Value>
                                       <Style>
                                         <FontSize>8pt</FontSize>
+                                        <TextDecoration>Underline</TextDecoration>
+                                        <Color>Blue</Color>
                                       </Style>
                                     </TextRun>
                                   </TextRuns>
@@ -2939,6 +2941,23 @@ group by lifecycle
                                 </Paragraph>
                               </Paragraphs>
                               <rd:DefaultName>lifecycle1</rd:DefaultName>
+                              <ActionInfo>
+                                <Actions>
+                                  <Action>
+                                    <Drillthrough>
+                                      <ReportName>ElasticJobs_JobHistory</ReportName>
+                                      <Parameters>
+                                        <Parameter Name="Job">
+                                          <Value>=Fields!job_name.Value</Value>
+                                        </Parameter>
+                                        <Parameter Name="DT">
+                                          <Value>=today()</Value>
+                                        </Parameter>
+                                      </Parameters>
+                                    </Drillthrough>
+                                  </Action>
+                                </Actions>
+                              </ActionInfo>
                               <Style>
                                 <Border>
                                   <Color>LightGrey</Color>

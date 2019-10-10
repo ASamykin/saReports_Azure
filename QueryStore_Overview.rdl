@@ -3750,7 +3750,7 @@ from data </CommandText>
                 <Actions>
                   <Action>
                     <Drillthrough>
-                      <ReportName>ElasticJobs_Overview</ReportName>
+                      <ReportName>AzureDB_main</ReportName>
                     </Drillthrough>
                   </Action>
                 </Actions>
