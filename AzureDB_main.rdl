@@ -990,7 +990,7 @@ exec ('dbcc tracestatus()')
 	select '4137','Fix for bad performance in queries with several AND criteria.','http://support.microsoft.com/kb/2658214' union all
 	select '4138','Fixes performance probles with certain queries that use TOP statement.','http://support.microsoft.com/kb/2667211' union all
 	select '4139','Fix for poor cardinality estimation when the ascending key column is branded as stationary.','https://support.microsoft.com/en-us/kb/2952101' union all
-	select '4199','Turn on all optimizations.','' union all
+	-- /*see below*/ select '4199','Turn on all optimizations.','' union all
 	select '4606','Ignore domain policy about weak password.','' union all
 	select '4616','Alters server-level metadata visibility.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
 	select '6498','Increased query compilation scalability in SQL Server 2014.','http://blogs.msdn.com/b/sql_server_team/archive/2015/10/09/query-compile-big-gateway-policy-changes-in-sql-server.aspx' union all
@@ -1023,7 +1023,6 @@ exec ('dbcc tracestatus()')
 	select '8048','NUMA CPU based partitioning.','http://blogs.msdn.com/b/psssql/archive/2011/09/01/sql-server-2008-2008-r2-on-newer-machines-with-more-than-8-cpus-presented-per-numa-node-may-need-trace-flag-8048.aspx' union all
 	select '8075','Reduces VAS fragmentation when you receive memory page allocation errors on a 64-bit SQL Server 2012 (11.x) or SQL Server 2014 (12.x). ','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all 
 	select '8079','Allows SQL Server 2014 (12.x) SP2 to interrogate the hardware layout and automatically configure Soft-NUMA on systems reporting 8 or more CPUs per NUMA node.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all 
-	
 
 	select '8207','Alters Transactional Replication behaviour of UPDATE statement.','http://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
 	select '8209','Output extra infomation to errorlog regarding replication of schema changes in SQL Server Replication.','http://support.microsoft.com/kb/916706/en-us' union all
@@ -1050,8 +1049,7 @@ exec ('dbcc tracestatus()')
 	select '9347','Disables batch mode sort operator for Clustered Columnstore Index.','https://support.microsoft.com/en-us/kb/3172787' union all
 	select '9349','Disables batch mode top sort operator. SQL Server 2016 Release Candidate (RC0) introduces a new batch mode top sort operator that boosts performance for many analytical queries.','https://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
 
-	select '9358','Disable Batch Execution Mode for Sort Iterators.','http://www.nikoport.com/2016/07/29/columnstore-indexes-part-86-new-trace-flags-in-sql-server-2016/' union all 
-
+	-- /*see below*/ select '9358','Disable Batch Execution Mode for Sort Iterators.','http://www.nikoport.com/2016/07/29/columnstore-indexes-part-86-new-trace-flags-in-sql-server-2016/' union all 
 
 	select '9389','Enables dynamic memory grant for batch mode operators. If a query does not get all the memory it needs, it spills data to tempdb, incurring additional I/O and potentially impacting query performance. If the dynamic memory grant trace flag is enabled, a batch mode operator may ask for additional memory and avoid spilling to tempdb if additional memory is available.','https://msdn.microsoft.com/en-us/library/ms188396.aspx' union all
 	select '9481','Forces the query optimizer to use the SQL Server 2012 version of the cardinality estimator when creating the query plan when running SQL Server 2014 with the default database compatibility level 120','http://support.microsoft.com/kb/2801413' union all
@@ -1077,6 +1075,18 @@ exec ('dbcc tracestatus()')
 
 	select '11023','Disables the use of the last persisted sample rate for all subsequent statistics update, where a sample rate is not specified explicitly as part of the UPDATE STATISTICS statement.','https://docs.microsoft.com/en-us/sql/t-sql/database-console-commands/dbcc-traceon-trace-flags-transact-sql' union all
 	select '11024','Fixes behavior in Auto Update of Incremental Statistics.','https://support.microsoft.com/en-us/help/4041811/automatic-update-of-incremental-statistics-is-delayed-in-sql-server' 
+
+	-- addendum
+	union all select   '634', 'Disables the background columnstore compression task.','https://msdn.microsoft.com/en-us/library/ms188396.aspx' 
+	union all select   '646', 'Gets text output messages that show what segments (row groups) were eliminated during query processing.', 'http://social.technet.microsoft.com/wiki/contents/articles/5611.verifying-columnstore-segment-elimination.aspx'
+	union all select  '4199', 'Disable batch mode sort operations in a complex parallel query in SQL Server 2016', 'https://support.microsoft.com/en-nz/kb/3171555'
+	union all select  '6404', 'Fixes the amount of memory for ALTER INDEX REORGANIZE on 4GB/16GB depending on the Server size.', 'https://support.microsoft.com/en-us/help/4019028/fix-sql-server-2016-consumes-more-memory-when-you-reorganize-a-columns'
+	union all select  '9354', 'All types of pushdown activity can be disabled with trace flag 9354.', 'https://sqlperformance.com/2019/04/sql-plan/grouped-aggregate-pushdown'
+	union all select  '9358', 'Disable batch mode sort operations in a complex parallel query in SQL Server 2016.', 'https://support.microsoft.com/en-nz/kb/3171555'
+	union all select  '9373', 'Grouped aggregation pushdown is specifically disabled using trace flag 9373.', 'https://sqlperformance.com/2019/04/sql-plan/grouped-aggregate-pushdown'
+	union all select  '9453', 'Disables Batch Execution Mode', 'http://www.nikoport.com/2016/07/24/clustered-columnstore-indexes-part-35-trace-flags-query-optimiser-rules/'
+	union all select '10207', 'Skips Corrupted Columnstore Segments (Fixed in CU8 for SQL Server 2014 RTM and CU1 for SQL Server 2014 SP1)', 'https://support.microsoft.com/en-us/kb/3067257'
+
 	)
 select t.tf
 	,isnull(d.[description],'(unknown)') [description]
@@ -1142,7 +1152,7 @@ group by statement
 )
 select 
 	isnull(sum(missing),0)  [missing]
-	,STRING_AGG([state]+convert(varchar(10),missing),char(10)) [objs]
+	,STRING_AGG([state]+convert(varchar(10),missing),char(10)) within group (order by [state]) [objs]
 from data 
 option (recompile)</CommandText>
       </Query>
@@ -5554,7 +5564,10 @@ join data d on so.readonly_reason=d.n</CommandText>
                                 <Actions>
                                   <Action>
                                     <Drillthrough>
-                                      <ReportName>XESessionBuffer</ReportName>
+                                      <ReportName>=iif(isNothing(Fields!duration.Value)=true
+	,Nothing
+	,"XESessionBuffer"
+	)</ReportName>
                                       <Parameters>
                                         <Parameter Name="SessionName">
                                           <Value>=Fields!name.Value</Value>
@@ -5579,6 +5592,7 @@ join data d on so.readonly_reason=d.n</CommandText>
                                 <PaddingLeft>12pt</PaddingLeft>
                               </Style>
                             </Image>
+                            <rd:Selected>true</rd:Selected>
                           </CellContents>
                         </TablixCell>
                       </TablixCells>

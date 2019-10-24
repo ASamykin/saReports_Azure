@@ -8325,7 +8325,7 @@ from data </CommandText>
                             </Actions>
                           </ActionInfo>
                           <ToolTip>="Executions"+chr(10)
-+"successful :"+cstr(Fields!execs.Value-Fields!execs_failed.Value)+chr(10)
++"successful : "+cstr(Fields!execs.Value-Fields!execs_failed.Value)+chr(10)
 +"failed : "+cstr(Fields!execs_failed.Value)</ToolTip>
                           <Style>
                             <Border>

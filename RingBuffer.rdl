@@ -348,7 +348,7 @@ exec (@cmd)</CommandText>
                   </TablixCells>
                 </TablixRow>
                 <TablixRow>
-                  <Height>0.25in</Height>
+                  <Height>0.20833in</Height>
                   <TablixCells>
                     <TablixCell>
                       <CellContents>
@@ -538,7 +538,7 @@ exec (@cmd)</CommandText>
             <DataSetName>dsRingBufferEvents</DataSetName>
             <Top>0.38889in</Top>
             <Left>0.02778in</Left>
-            <Height>0.5in</Height>
+            <Height>0.45833in</Height>
             <Width>4.43528in</Width>
             <ZIndex>1</ZIndex>
             <Style>
@@ -640,7 +640,6 @@ exec (@cmd)</CommandText>
                               <PaddingBottom>2pt</PaddingBottom>
                             </Style>
                           </Textbox>
-                          <rd:Selected>true</rd:Selected>
                         </CellContents>
                       </TablixCornerCell>
                       <TablixCornerCell>

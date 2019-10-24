@@ -34,6 +34,12 @@
     <DataSet Name="dsEventsGrouped">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@dt1">
+            <Value>=Parameters!parDate.Value</Value>
+            <rd:UserDefined>true</rd:UserDefined>
+          </QueryParameter>
+        </QueryParameters>
         <CommandText>with data as (  
 /*RING_BUFFER_CONNECTIVITY: get one pair time (timestamp) + RecordTime (datetime) to use it as a base to 
 calculate date and time for all other events as  they only have "timestamp" column (bigint). 
@@ -50,7 +56,7 @@ from
 , data2 as 
 (
 select 
-	dateadd(ms,convert(bigint,rb.timestamp)-d.time_int,d.time_dt) [dt]
+	dateadd(ss,(rb.timestamp-d.time_int)/1000,d.time_dt) [dt]
 	,rb.ring_buffer_type [event]
 from data d
 cross join sys.dm_os_ring_buffers rb
@@ -60,7 +66,8 @@ select
 	,[event]
 	,count(1) [nn_hh]
 from data2
-where [dt]&gt;=convert(date,getdate())
+--where [dt]&gt;=convert(date,getdate())
+where [dt]&gt;=@dt1 and [dt]&lt;dateadd(dd,1,@dt1)
 group by dateadd(hh,datediff(hh,0,[dt]),0) , [event]
 order by 1 desc </CommandText>
       </Query>
@@ -79,33 +86,381 @@ order by 1 desc </CommandText>
         </Field>
       </Fields>
     </DataSet>
+    <DataSet Name="dsEventsCalendar">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <CommandText>set datefirst 1;
+with data as (  
+/*RING_BUFFER_CONNECTIVITY: get one pair time (timestamp) + RecordTime (datetime) to use it as a base to 
+calculate date and time for all other events as  they only have "timestamp" column (bigint). 
+*/
+select top 1
+	record.value('(Record/@time)[1]', 'bigint') [time_int],
+	record.value('(Record/ConnectivityTraceRecord/RecordTime)[1]', 'datetime') [time_dt]
+from
+		( select cast(record as xml) as record
+			from sys.dm_os_ring_buffers
+			where ring_buffer_type = 'RING_BUFFER_CONNECTIVITY'
+		) as tab
+	)
+, data2 as 
+(
+select 
+	dateadd(ss,(rb.timestamp-d.time_int)/1000,d.time_dt) [dt]
+	,rb.ring_buffer_type [event]
+from data d
+cross join sys.dm_os_ring_buffers rb
+)
+,final as 
+(
+select 
+	convert(date,dateadd(dd,datediff(dd,0,[dt]),0)) [dt_hh]
+	,[event]
+	,count(1) [nn_hh]
+from data2
+group by dateadd(dd,datediff(dd,0,[dt]),0), [event]
+)
+select 
+	[dt_hh] [dt]
+	,datepart(dw,[dt_hh]) [weekday_int]
+	,datename(weekday,[dt_hh]) [wd]
+	,datepart(wk,[dt_hh]) [wk]
+	,left(convert(varchar(20),dateadd(wk,datepart(wk,[dt_hh])-1,'20190101')-1,106),6)
+		+  ' - ' +
+	left(convert(varchar(20),dateadd(wk,datepart(wk,[dt_hh])-1,'20190101')+5,106),6)
+		[week_desc]
+,[event] 
+,[nn_hh]
+from final 
+--order by 1 desc </CommandText>
+      </Query>
+      <Fields>
+        <Field Name="dt">
+          <DataField>dt</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="weekday_int">
+          <DataField>weekday_int</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="wd">
+          <DataField>wd</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="wk">
+          <DataField>wk</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="week_desc">
+          <DataField>week_desc</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="event">
+          <DataField>event</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="nn_hh">
+          <DataField>nn_hh</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
+    <DataSet Name="dsEventsDetails">
+      <Query>
+        <DataSourceName>DataSource1</DataSourceName>
+        <QueryParameters>
+          <QueryParameter Name="@type">
+            <Value>=Parameters!parEvent.Value</Value>
+            <rd:UserDefined>true</rd:UserDefined>
+          </QueryParameter>
+          <QueryParameter Name="@dt">
+            <Value>=Parameters!parDate.Value</Value>
+            <rd:UserDefined>true</rd:UserDefined>
+          </QueryParameter>
+        </QueryParameters>
+        <CommandText>/*
+declare @type varchar(50) = 'RING_BUFFER_EXCEPTION'--'RING_BUFFER_XE_LOG'--'RING_BUFFER_AUTO_ELEVATE_PFS_UP_LATCH'--'RING_BUFFER_MEMORY_BROKER_CLERKS'--'RING_BUFFER_SECURITY_ERROR'
+declare @dt date = getdate()
+*/
+declare @cmd varchar(8000)
+declare @part1 varchar(8000) 
+declare @part2 varchar(8000)
+
+set @part1='
+with dt as 
+	(
+	select 
+		record.value(''(Record/@time)[1]'', ''bigint'') [time_int],
+		record.value(''(Record/ConnectivityTraceRecord/RecordTime)[1]'', ''datetime'') [time_dt]
+	from
+		( select top 1 cast(record as xml) as record
+			from sys.dm_os_ring_buffers
+			where ring_buffer_type = ''RING_BUFFER_CONNECTIVITY''
+		) as tab
+	)
+,bt(ts, type, record) as  
+   (select  dateadd(ss,(rb.timestamp-d.time_int)/1000,d.time_dt) [ts]
+			,rb.ring_buffer_type [type]
+			,convert(XML,rb.record) [record]
+	from sys.dm_os_ring_buffers rb
+	cross join dt d
+	where ring_buffer_type = ''XXXXX''
+	and dateadd(ss,(rb.timestamp-d.time_int)/1000,d.time_dt) &gt;= @date 
+	and dateadd(ss,(rb.timestamp-d.time_int)/1000,d.time_dt) &lt;  dateadd(dd,1,@date)
+	)  
+,data as ('
+set @cmd=replace(replace(@part1,'XXXXX',@type),'@date',''''+convert(varchar(10),@dt,112)+'''')
+
+if @type='RING_BUFFER_SECURITY_ERROR'
+	set @part2= '
+SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]''						,''bigint'')		 [Record id] 
+	,record.value(''(/Record/@time)[1]''					,''varchar(100)'') [Time]  
+	,record.value(''(/Record/Error/SPID)[1]''				,''varchar(100)'') [SPID]  
+	,record.value(''(/Record/Error/APIName)[1]''			,''varchar(100)'') [APIName]
+	,record.value(''(/Record/Error/CallingAPIName)[1]''	,''varchar(100)'') [CallingAPIName]
+	,record.value(''(/Record/Error/ErrorCode)[1]''		,''varchar(100)'') [ErrorCode]
+	,record.value(''(/Record/Error/SQLErrorCode)[1]''		,''varchar(100)'') [SQL Error Code]  
+	,record.value(''(/Record/Error/SQLErrorState)[1]''	,''varchar(100)'') [SQL Error State]  
+FROM bt  
+)
+select [nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[SPID],[APIName],[CallingAPIName],[ErrorCode],[SQL Error Code],[SQL Error State])) un'
+
+if @type='RING_BUFFER_MEMORY_BROKER_CLERKS'
+	set @part2='
+	SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]'',''bigint'') AS [Record id]
+	,record.value(''(/Record/@time)[1]'',''varchar(100)'') AS [Time]  
+	,record.value(''(/Record/MemoryBrokerClerk/Name)[1]'',					''varchar(100)'') AS [Name]  
+	,record.value(''(/Record/MemoryBrokerClerk/TotalPages)[1]'',			''varchar(100)'') AS [TotalPages]
+	,record.value(''(/Record/MemoryBrokerClerk/SimulatedPages)[1]'',		''varchar(100)'') AS [SimulatedPages]
+	,record.value(''(/Record/MemoryBrokerClerk/InternalBenefit)[1]'',		''varchar(100)'') AS [InternalBenefit]
+	,record.value(''(/Record/MemoryBrokerClerk/ExternalBenefit)[1]'',		''varchar(100)'') AS [ExternalBenefit]  
+	,record.value(''(/Record/MemoryBrokerClerk/ValueOfMemory)[1]'',			''varchar(100)'') AS [ValueOfMemory]  
+	,record.value(''(/Record/MemoryBrokerClerk/PeriodicFreedPages)[1]'',	''varchar(100)'') AS [PeriodicFreedPages]  
+	,record.value(''(/Record/MemoryBrokerClerk/InternalFreedPages)[1]'',	''varchar(100)'') AS [InternalFreedPages]  
+	FROM bt 
+)
+select [nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[Name],[TotalPages],[SimulatedPages],[InternalBenefit],[ExternalBenefit],[ValueOfMemory],[PeriodicFreedPages],[InternalFreedPages])) un'
+
+if @type='RING_BUFFER_AUTO_ELEVATE_PFS_UP_LATCH'
+	set @part2='
+	SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]''						,''bigint'')		 [Record id] 
+	,record.value(''(/Record/@time)[1]''					,''varchar(100)'') [Time]  
+	,record.value(''(/Record/LatchRingBufferRecord/m_dbId)[1]''				,''varchar(100)'') [DBID]  
+	,record.value(''(/Record/LatchRingBufferRecord/m_pgId)[1]''			,''varchar(100)'') [PageID]
+	,record.value(''(/Record/LatchRingBufferRecord/m_latchType)[1]''	,''varchar(100)'') [LatchType]
+	,record.value(''(/Record/LatchRingBufferRecord/m_recordType)[1]''		,''varchar(100)'') [RecordType]
+FROM bt  
+)
+select [nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[DBID],[PageID],[LatchType],[RecordType])) un
+'
+
+if @type='RING_BUFFER_XE_LOG'
+	set @part2='
+	SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]''						,''bigint'')		 [Record id] 
+	,record.value(''(/Record/@time)[1]''					,''varchar(255)'') [Time]  
+	,record.value(''(/Record/XE_LogRecord/@message)[1]'',''varchar(255)'') [Message]  
+FROM bt  
+)
+select [nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[Message])) un
+	'
+
+if @type='RING_BUFFER_EXCEPTION'
+	set @part2='
+	SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]''					,''bigint'')		 [Record id] 
+	,record.value(''(/Record/@time)[1]''					,''varchar(2048)'') [Time]  
+	,record.value(''(/Record/Exception/Error)[1]''		,''varchar(2048)'') [Error]  
+	,record.value(''(/Record/Exception/Severity)[1]''		,''varchar(2048)'') [Severity]  
+	,record.value(''(/Record/Exception/State)[1]''		,''varchar(2048)'') [State]  
+	,record.value(''(/Record/Exception/UserDefined)[1]''	,''varchar(2048)'') [UserDefined]  
+	,record.value(''(/Record/Exception/Origin)[1]''		,''varchar(2048)'') [Origin]  
+	,convert(varchar(2048),m.text) [Text]
+FROM bt  
+left join sys.messages m on bt.record.value(''(/Record/Exception/Error)[1]'',''int'')=m.message_id
+)
+select [nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[Error],[Severity],[State],[UserDefined],[Origin],[Text])) un'
+
+if @type='RING_BUFFER_SCHEDULER_MONITOR'
+	set @part2='
+	SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]''					,''bigint'')		 [Record id] 
+	,record.value(''(/Record/@time)[1]''					,''varchar(20)'') [Time]  
+	,record.value(''(/Record/SchedulerMonitorEvent/SystemHealth/ProcessUtilization)[1]''		,''varchar(20)'') [ProcessUtilization]  
+	,record.value(''(/Record/SchedulerMonitorEvent/SystemHealth/SystemIdle)[1]''		,''varchar(20)'') [SystemIdle]
+	,record.value(''(/Record/SchedulerMonitorEvent/SystemHealth/UserModeTime)[1]''		,''varchar(20)'') [UserModeTime]
+	,record.value(''(/Record/SchedulerMonitorEvent/SystemHealth/KernelModeTime)[1]''	,''varchar(20)'')	  [KernelModeTime]  
+	,record.value(''(/Record/SchedulerMonitorEvent/SystemHealth/PageFaults)[1]''		,''varchar(20)'') [PageFaults]
+	,record.value(''(/Record/SchedulerMonitorEvent/SystemHealth/WorkingSetDelta)[1]''	,''varchar(20)'')	  [WorkingSetDelta]  
+	,record.value(''(/Record/SchedulerMonitorEvent/SystemHealth/MemoryUtilization)[1]'',''varchar(20)'') [MemoryUtilization]
+FROM bt  
+)
+select [nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[ProcessUtilization],[SystemIdle],[UserModeTime],[KernelModeTime],[PageFaults],[WorkingSetDelta],[MemoryUtilization])) un'
+
+if @type='RING_BUFFER_CONNECTIVITY'
+	set @part2='
+	SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]''					,''bigint'')		 [Record id] 
+	,record.value(''(/Record/@time)[1]''					,''varchar(100)'') [Time]  
+	,record.value(''(/Record/ConnectivityTraceRecord/RecordType)[1]''		,''varchar(100)'') [RecordType]  
+	,record.value(''(/Record/ConnectivityTraceRecord/IsClient)[1]''		,''varchar(100)'') [IsClient]  
+	,record.value(''(/Record/ConnectivityTraceRecord/Spid)[1]''		,''varchar(100)'') [Spid]  
+	,record.value(''(/Record/ConnectivityTraceRecord/SniConnId)[1]''		,''varchar(100)'') [SniConnId]  
+	,record.value(''(/Record/ConnectivityTraceRecord/ClientConnectionId)[1]''		,''varchar(100)'') [ClientConnectionId]  
+	,record.value(''(/Record/ConnectivityTraceRecord/SniConsumerError)[1]''		,''varchar(100)'') [SniConsumerError]  
+	,record.value(''(/Record/ConnectivityTraceRecord/SniProvider)[1]''		,''varchar(100)'') [SniProvider]  
+	,record.value(''(/Record/ConnectivityTraceRecord/State)[1]''		,''varchar(100)'') [State]  
+	,record.value(''(/Record/ConnectivityTraceRecord/RemoteHost)[1]''		,''varchar(100)'') [RemoteHost]  
+	,record.value(''(/Record/ConnectivityTraceRecord/RemotePort)[1]''		,''varchar(100)'') [RemotePort]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LocalPort)[1]''		,''varchar(100)'') [LocalPort]  
+	,record.value(''(/Record/ConnectivityTraceRecord/RecordTime)[1]''		,''varchar(100)'') [_RecordTime]  
+
+	,record.value(''(/Record/ConnectivityTraceRecord/TdsBufInfo/InputBufError)[1]''		,''varchar(100)'') [TDS_InputBufError]  
+	,record.value(''(/Record/ConnectivityTraceRecord/TdsBufInfo/OutputBufError)[1]''		,''varchar(100)'') [TDS_OutputBufError]  
+	,record.value(''(/Record/ConnectivityTraceRecord/TdsBufInfo/InputBufBytes)[1]''		,''varchar(100)'') [TDS_InputBufBytes]  
+
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/TotalTime)[1]''		,''varchar(100)'') [TotalTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/EnqueueTime)[1]''		,''varchar(100)'') [EnqueueTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/NetWritesTime)[1]''		,''varchar(100)'') [NetWritesTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/NetReadsTime)[1]''		,''varchar(100)'') [NetReadsTime]  
+
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Ssl/TotalTime)[1]''		,''varchar(100)'') [SSL_TotalTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Ssl/NetReadsTime)[1]''		,''varchar(100)'') [SSL_NetReadsTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Ssl/NetWritesTime)[1]''		,''varchar(100)'') [SSL_NetWritesTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Ssl/SecureCallsTime)[1]''		,''varchar(100)'') [SSL_SecureCallsTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Sql/EnqueueTime)[1]''		,''varchar(100)'') [SSL_EnqueueTime]  
+
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Sspi/TotalTime)[1]''		,''varchar(100)'') [SSPI_TotalTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Sspi/NetReadsTime)[1]''		,''varchar(100)'') [SSPI_NetReadsTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Sspi/NetWritesTime)[1]''		,''varchar(100)'') [SSPI_NetWritesTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Sspi/SecureCallsTime)[1]''		,''varchar(100)'') [SSPI_SecureCallsTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/Sspi/EnqueueTime)[1]''		,''varchar(100)'') [SSPI_EnqueueTime]  
+
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/TriggerAndResGovTime/TotalTime)[1]''		,''varchar(100)'') [Trg_TotalTime]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/TriggerAndResGovTime/FindLogin)[1]''		,''varchar(100)'') [Trg_FindLogin]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/TriggerAndResGovTime/LogonTriggers)[1]''		,''varchar(100)'') [Trg_LogonTriggers]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/TriggerAndResGovTime/ExecClassifier)[1]''		,''varchar(100)'') [Trg_ExecClassifier]  
+	,record.value(''(/Record/ConnectivityTraceRecord/LoginTimersInMilliseconds/TriggerAndResGovTime/SessionRecover)[1]''		,''varchar(100)'') [Trg_SessionRecover]  
+	
+FROM bt  
+)  
+select [nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[RecordType],[IsClient],[Spid],[SniConnId],[ClientConnectionId],[SniConsumerError],[SniProvider],[State],[RemoteHost],[RemotePort],[LocalPort],[_RecordTime],[TDS_InputBufError],[TDS_OutputBufError],[TDS_InputBufBytes],[TotalTime],[EnqueueTime],[NetWritesTime],[NetReadsTime],[SSL_TotalTime],[SSL_NetReadsTime],[SSL_NetWritesTime],[SSL_SecureCallsTime],[SSL_EnqueueTime],[SSPI_TotalTime],[SSPI_NetReadsTime],[SSPI_NetWritesTime],[SSPI_SecureCallsTime],[SSPI_EnqueueTime],[Trg_TotalTime],[Trg_FindLogin],[Trg_LogonTriggers],[Trg_ExecClassifier],[Trg_SessionRecover])) un'
+
+if @type='RING_BUFFER_MEMORY_BROKER'
+	set @part2='
+	SELECT 
+	ts
+	,type
+	,record.value(''(/Record/@id)[1]''					,''bigint'')		 [Record id] 
+	,record.value(''(/Record/@time)[1]''					,''varchar(100)'') [Time]  
+	,record.value(''(/Record/MemoryBroker/DeltaTime)[1]''			,''varchar(100)'') [DeltaTime]  
+	,record.value(''(/Record/MemoryBroker/Pool)[1]''			,''varchar(100)'') [Pool]  
+	,record.value(''(/Record/MemoryBroker/Broker)[1]''			,''varchar(100)'') [Broker]  
+	,record.value(''(/Record/MemoryBroker/Notification)[1]''			,''varchar(100)'') [Notification]  
+	,record.value(''(/Record/MemoryBroker/MemoryRatio)[1]''			,''varchar(100)'') [MemoryRatio]  
+	,record.value(''(/Record/MemoryBroker/NewTarget)[1]''			,''varchar(100)'') [NewTarget]  
+	,record.value(''(/Record/MemoryBroker/Overall)[1]''			,''varchar(100)'') [Overall]  
+	,record.value(''(/Record/MemoryBroker/Rate)[1]''			,''varchar(100)'') [Rate]  
+	,record.value(''(/Record/MemoryBroker/CurrentlyPredicted)[1]''			,''varchar(100)'') [CurrentlyPredicted]  
+	,record.value(''(/Record/MemoryBroker/CurrentlyAllocated)[1]''			,''varchar(100)'') [CurrentlyAllocated]  
+	,record.value(''(/Record/MemoryBroker/PreviouslyAllocated)[1]''			,''varchar(100)'') [PreviouslyAllocated]  
+FROM bt  
+)  
+select 
+	[nnn],
+	ts,type,[Record ID] [rec],prop, val
+from data   
+unpivot (val for prop in ([Time],[DeltaTime],[Pool],[Broker],[Notification],[MemoryRatio],[NewTarget],[Overall],[Rate],[CurrentlyPredicted],[CurrentlyAllocated],[PreviouslyAllocated])) un'
+
+if @part2=''
+	set @cmd='select 0 [n],NULL [ts],NULL [type],NULL [rec], NULL [prop], NULL [val]'
+else 
+	set @cmd=@cmd+replace(@part2,'[nnn],','ROW_NUMBER() over (partition by [Record ID] order by (select 1/0)) [n],')+' option (recompile)'
+
+exec (@cmd)</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="ts">
+          <DataField>ts</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="type">
+          <DataField>type</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="prop">
+          <DataField>prop</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="val">
+          <DataField>val</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="rec">
+          <DataField>rec</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+        <Field Name="n">
+          <DataField>n</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
+        </Field>
+      </Fields>
+    </DataSet>
   </DataSets>
   <ReportSections>
     <ReportSection>
       <Body>
         <ReportItems>
-          <Chart Name="Chart1">
+          <Chart Name="Chart2">
             <ChartCategoryHierarchy>
               <ChartMembers>
                 <ChartMember>
-                  <Group Name="Chart1_CategoryGroup1">
-                    <GroupExpressions>
-                      <GroupExpression>=Fields!dt_hh.Value</GroupExpression>
-                    </GroupExpressions>
-                  </Group>
-                  <SortExpressions>
-                    <SortExpression>
-                      <Value>=Fields!dt_hh.Value</Value>
-                    </SortExpression>
-                  </SortExpressions>
-                  <Label>=Fields!dt_hh.Value</Label>
+                  <Label />
                 </ChartMember>
               </ChartMembers>
             </ChartCategoryHierarchy>
             <ChartSeriesHierarchy>
               <ChartMembers>
                 <ChartMember>
-                  <Group Name="Chart1_SeriesGroup">
+                  <Group Name="Chart2_SeriesGroup">
                     <GroupExpressions>
                       <GroupExpression>=Fields!event.Value</GroupExpression>
                     </GroupExpressions>
@@ -115,7 +470,7 @@ order by 1 desc </CommandText>
                       <Value>=Fields!event.Value</Value>
                     </SortExpression>
                   </SortExpressions>
-                  <Label>=Fields!event.Value</Label>
+                  <Label>=replace(Fields!event.Value,"RING_BUFFER_","")</Label>
                 </ChartMember>
               </ChartMembers>
             </ChartSeriesHierarchy>
@@ -128,11 +483,32 @@ order by 1 desc </CommandText>
                         <Y>=Sum(Fields!nn_hh.Value)</Y>
                       </ChartDataPointValues>
                       <ChartDataLabel>
-                        <Style />
+                        <Style>
+                          <FontSize>8pt</FontSize>
+                          <Format>#,0.</Format>
+                        </Style>
+                        <UseValueAsLabel>true</UseValueAsLabel>
+                        <Visible>true</Visible>
+                        <Position>Center</Position>
                       </ChartDataLabel>
-                      <ToolTip>="Date: " +format(Fields!dt_hh.Value, "dd MMM HH:mm")+chr(10)
-+"Event: "+Fields!event.Value+chr(10)
-+"Amount: "+ cstr(Fields!nn_hh.Value)</ToolTip>
+                      <ToolTip>=Fields!event.Value</ToolTip>
+                      <ActionInfo>
+                        <Actions>
+                          <Action>
+                            <Drillthrough>
+                              <ReportName>RingBuffer_Overview</ReportName>
+                              <Parameters>
+                                <Parameter Name="parDate">
+                                  <Value>=Parameters!parDate.Value</Value>
+                                </Parameter>
+                                <Parameter Name="parEvent">
+                                  <Value>=Fields!event.Value</Value>
+                                </Parameter>
+                              </Parameters>
+                            </Drillthrough>
+                          </Action>
+                        </Actions>
+                      </ActionInfo>
                       <Style />
                       <ChartMarker>
                         <Style />
@@ -140,6 +516,8 @@ order by 1 desc </CommandText>
                       <DataElementOutput>Output</DataElementOutput>
                     </ChartDataPoint>
                   </ChartDataPoints>
+                  <Type>Shape</Type>
+                  <Subtype>TreeMap</Subtype>
                   <Style />
                   <ChartEmptyPoints>
                     <Style />
@@ -169,7 +547,6 @@ order by 1 desc </CommandText>
                         <Style>None</Style>
                       </Border>
                       <FontSize>8pt</FontSize>
-                      <Format>HH:mm</Format>
                       <Color>#5c5c5c</Color>
                     </Style>
                     <ChartAxisTitle>
@@ -179,8 +556,6 @@ order by 1 desc </CommandText>
                         <Color>#5c5c5c</Color>
                       </Style>
                     </ChartAxisTitle>
-                    <Interval>1</Interval>
-                    <IntervalType>Hours</IntervalType>
                     <ChartMajorGridLines>
                       <Enabled>False</Enabled>
                       <Style>
@@ -206,7 +581,6 @@ order by 1 desc </CommandText>
                       </Style>
                     </ChartMajorTickMarks>
                     <ChartMinorTickMarks>
-                      <Enabled>True</Enabled>
                       <Style>
                         <Border>
                           <Color>Gainsboro</Color>
@@ -215,7 +589,6 @@ order by 1 desc </CommandText>
                       <Length>0.5</Length>
                     </ChartMinorTickMarks>
                     <CrossAt>NaN</CrossAt>
-                    <Scalar>true</Scalar>
                     <Minimum>NaN</Minimum>
                     <Maximum>NaN</Maximum>
                     <ChartAxisScaleBreak>
@@ -331,7 +704,6 @@ order by 1 desc </CommandText>
                     <Minimum>NaN</Minimum>
                     <Maximum>NaN</Maximum>
                     <ChartAxisScaleBreak>
-                      <Enabled>true</Enabled>
                       <Style />
                     </ChartAxisScaleBreak>
                   </ChartAxis>
@@ -403,7 +775,7 @@ order by 1 desc </CommandText>
                   <BackgroundGradientType>None</BackgroundGradientType>
                   <FontSize>8pt</FontSize>
                 </Style>
-                <Position>TopLeft</Position>
+                <Position>RightCenter</Position>
                 <ChartLegendTitle>
                   <Caption />
                   <Style>
@@ -416,20 +788,6 @@ order by 1 desc </CommandText>
                 <ColumnSeparatorColor>Black</ColumnSeparatorColor>
               </ChartLegend>
             </ChartLegends>
-            <ChartTitles>
-              <ChartTitle Name="Default">
-                <Caption>Chart Title</Caption>
-                <Style>
-                  <BackgroundGradientType>None</BackgroundGradientType>
-                  <FontSize>9pt</FontSize>
-                  <FontWeight>Normal</FontWeight>
-                  <TextAlign>Left</TextAlign>
-                  <VerticalAlign>Top</VerticalAlign>
-                  <Color>#a6a6a6</Color>
-                </Style>
-                <Position>TopLeft</Position>
-              </ChartTitle>
-            </ChartTitles>
             <Palette>Pacific</Palette>
             <ChartBorderSkin>
               <Style>
@@ -448,10 +806,9 @@ order by 1 desc </CommandText>
               </Style>
             </ChartNoDataMessage>
             <DataSetName>dsEventsGrouped</DataSetName>
-            <Top>0.22792in</Top>
-            <Left>0.16542in</Left>
-            <Height>3.51042in</Height>
-            <Width>13.05208in</Width>
+            <Top>1.14111in</Top>
+            <Height>3.11458in</Height>
+            <Width>14.60416in</Width>
             <Style>
               <Border>
                 <Color>LightGrey</Color>
@@ -461,11 +818,811 @@ order by 1 desc </CommandText>
               <BackgroundGradientType>None</BackgroundGradientType>
             </Style>
           </Chart>
+          <Tablix Name="Tablix1">
+            <TablixCorner>
+              <TablixCornerRows>
+                <TablixCornerRow>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox4">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value />
+                                <Style>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox4</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Style>None</Style>
+                          </Border>
+                          <BottomBorder>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </BottomBorder>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                </TablixCornerRow>
+              </TablixCornerRows>
+            </TablixCorner>
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.25in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="Textbox3">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=sum(Fields!nn_hh.Value)</Value>
+                                  <Style>
+                                    <TextDecoration>Underline</TextDecoration>
+                                    <Color>Blue</Color>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>Textbox3</rd:DefaultName>
+                          <ActionInfo>
+                            <Actions>
+                              <Action>
+                                <Drillthrough>
+                                  <ReportName>RingBuffer_Overview</ReportName>
+                                  <Parameters>
+                                    <Parameter Name="parDate">
+                                      <Value>=Fields!dt.Value</Value>
+                                    </Parameter>
+                                  </Parameters>
+                                </Drillthrough>
+                              </Action>
+                            </Actions>
+                          </ActionInfo>
+                          <ToolTip>=iif(isNothing(Fields!dt.Value)=false
+	,format(Fields!dt.Value,"dd MMM yyyy, dddd")+chr(10)+"Events: "+chr(10)
+	+"- "+join(lookupset(Fields!dt.Value
+					,Fields!dt.Value
+					,Fields!event.Value
+					,"dsEventsCalendar"
+					)
+			,chr(10)+"- "
+		  )
+	,"[no data]"
+	)</ToolTip>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Style>None</Style>
+                            </TopBorder>
+                            <LeftBorder>
+                              <Style>None</Style>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Style>None</Style>
+                            </RightBorder>
+                            <BackgroundColor>=iif(Fields!dt.Value=Parameters!parDate.Value
+	,"Khaki"
+	,"Transparent"
+	)</BackgroundColor>
+                            <VerticalAlign>Middle</VerticalAlign>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="wd">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!wd.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!weekday_int.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>0.25in</Size>
+                    <CellContents>
+                      <Textbox Name="wd">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!wd.Value</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>wd</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="wk">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!wk.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!wk.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>1.60417in</Size>
+                    <CellContents>
+                      <Textbox Name="wk">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>="Week #"+cstr(Fields!wk.Value)+chr(10)
++"("+Fields!week_desc.Value+")"</Value>
+                                <Style>
+                                  <FontSize>9pt</FontSize>
+                                  <FontWeight>Normal</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>wk</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <VerticalAlign>Middle</VerticalAlign>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <DataSetName>dsEventsCalendar</DataSetName>
+            <Top>0.17584in</Top>
+            <Left>0.48834in</Left>
+            <Height>0.5in</Height>
+            <Width>2.60417in</Width>
+            <ZIndex>1</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
+          <Textbox Name="Textbox8">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>="Date:  "+format(Parameters!parDate.Value,"dd MMM yyyy, dddd")</Value>
+                    <Style>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style />
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox8</rd:DefaultName>
+            <Top>0.89111in</Top>
+            <Left>0.48834in</Left>
+            <Height>0.25in</Height>
+            <Width>2.60417in</Width>
+            <ZIndex>2</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Textbox Name="Textbox9">
+            <CanGrow>true</CanGrow>
+            <KeepTogether>true</KeepTogether>
+            <Paragraphs>
+              <Paragraph>
+                <TextRuns>
+                  <TextRun>
+                    <Value>="Event:  "+Parameters!parEvent.Value</Value>
+                    <Style>
+                      <FontWeight>Bold</FontWeight>
+                    </Style>
+                  </TextRun>
+                </TextRuns>
+                <Style />
+              </Paragraph>
+            </Paragraphs>
+            <rd:DefaultName>Textbox8</rd:DefaultName>
+            <Top>4.32514in</Top>
+            <Left>0.48834in</Left>
+            <Height>0.25in</Height>
+            <Width>4.55209in</Width>
+            <ZIndex>3</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+              <PaddingLeft>2pt</PaddingLeft>
+              <PaddingRight>2pt</PaddingRight>
+              <PaddingTop>2pt</PaddingTop>
+              <PaddingBottom>2pt</PaddingBottom>
+            </Style>
+          </Textbox>
+          <Tablix Name="Tablix2">
+            <TablixCorner>
+              <TablixCornerRows>
+                <TablixCornerRow>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox14">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>Calculated Time</Value>
+                                <Style>
+                                  <FontSize>8pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox14</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox11">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>RING_BUFFER_</Value>
+                                <Style>
+                                  <FontSize>8pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox11</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                  <TablixCornerCell>
+                    <CellContents>
+                      <Textbox Name="Textbox16">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>RecordID</Value>
+                                <Style>
+                                  <FontSize>8pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>Textbox16</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixCornerCell>
+                </TablixCornerRow>
+              </TablixCornerRows>
+            </TablixCorner>
+            <TablixBody>
+              <TablixColumns>
+                <TablixColumn>
+                  <Width>1.5in</Width>
+                </TablixColumn>
+              </TablixColumns>
+              <TablixRows>
+                <TablixRow>
+                  <Height>0.19792in</Height>
+                  <TablixCells>
+                    <TablixCell>
+                      <CellContents>
+                        <Textbox Name="val">
+                          <CanGrow>true</CanGrow>
+                          <KeepTogether>true</KeepTogether>
+                          <Paragraphs>
+                            <Paragraph>
+                              <TextRuns>
+                                <TextRun>
+                                  <Value>=Fields!val.Value</Value>
+                                  <Style>
+                                    <FontSize>8pt</FontSize>
+                                    <Format>=iif(isNumeric(Fields!val.Value)=true,"#,0.",Nothing)</Format>
+                                  </Style>
+                                </TextRun>
+                              </TextRuns>
+                              <Style>
+                                <TextAlign>Center</TextAlign>
+                              </Style>
+                            </Paragraph>
+                          </Paragraphs>
+                          <rd:DefaultName>val</rd:DefaultName>
+                          <Style>
+                            <Border>
+                              <Color>LightGrey</Color>
+                              <Style>Solid</Style>
+                            </Border>
+                            <TopBorder>
+                              <Style>None</Style>
+                            </TopBorder>
+                            <LeftBorder>
+                              <Style>None</Style>
+                            </LeftBorder>
+                            <RightBorder>
+                              <Style>None</Style>
+                            </RightBorder>
+                            <PaddingLeft>2pt</PaddingLeft>
+                            <PaddingRight>2pt</PaddingRight>
+                            <PaddingTop>2pt</PaddingTop>
+                            <PaddingBottom>2pt</PaddingBottom>
+                          </Style>
+                        </Textbox>
+                      </CellContents>
+                    </TablixCell>
+                  </TablixCells>
+                </TablixRow>
+              </TablixRows>
+            </TablixBody>
+            <TablixColumnHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="prop">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!prop.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!n.Value</Value>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>0.25in</Size>
+                    <CellContents>
+                      <Textbox Name="prop">
+                        <CanGrow>true</CanGrow>
+                        <UserSort>
+                          <SortExpression>=Fields!prop.Value</SortExpression>
+                        </UserSort>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!prop.Value</Value>
+                                <Style>
+                                  <FontSize>8pt</FontSize>
+                                  <FontWeight>Bold</FontWeight>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>prop</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>WhiteSmoke</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                </TablixMember>
+              </TablixMembers>
+            </TablixColumnHierarchy>
+            <TablixRowHierarchy>
+              <TablixMembers>
+                <TablixMember>
+                  <Group Name="ts">
+                    <GroupExpressions>
+                      <GroupExpression>=Fields!ts.Value</GroupExpression>
+                    </GroupExpressions>
+                  </Group>
+                  <SortExpressions>
+                    <SortExpression>
+                      <Value>=Fields!ts.Value</Value>
+                      <Direction>Descending</Direction>
+                    </SortExpression>
+                  </SortExpressions>
+                  <TablixHeader>
+                    <Size>1in</Size>
+                    <CellContents>
+                      <Textbox Name="ts">
+                        <CanGrow>true</CanGrow>
+                        <KeepTogether>true</KeepTogether>
+                        <Paragraphs>
+                          <Paragraph>
+                            <TextRuns>
+                              <TextRun>
+                                <Value>=Fields!ts.Value</Value>
+                                <Style>
+                                  <FontSize>8pt</FontSize>
+                                  <Format>dd MMM HH:mm:ss</Format>
+                                </Style>
+                              </TextRun>
+                            </TextRuns>
+                            <Style>
+                              <TextAlign>Center</TextAlign>
+                            </Style>
+                          </Paragraph>
+                        </Paragraphs>
+                        <rd:DefaultName>ts</rd:DefaultName>
+                        <Style>
+                          <Border>
+                            <Color>LightGrey</Color>
+                            <Style>Solid</Style>
+                          </Border>
+                          <TopBorder>
+                            <Style>None</Style>
+                          </TopBorder>
+                          <LeftBorder>
+                            <Style>None</Style>
+                          </LeftBorder>
+                          <RightBorder>
+                            <Style>None</Style>
+                          </RightBorder>
+                          <BackgroundColor>White</BackgroundColor>
+                          <PaddingLeft>2pt</PaddingLeft>
+                          <PaddingRight>2pt</PaddingRight>
+                          <PaddingTop>2pt</PaddingTop>
+                          <PaddingBottom>2pt</PaddingBottom>
+                        </Style>
+                      </Textbox>
+                    </CellContents>
+                  </TablixHeader>
+                  <TablixMembers>
+                    <TablixMember>
+                      <Group Name="type">
+                        <GroupExpressions>
+                          <GroupExpression>=Fields!type.Value</GroupExpression>
+                        </GroupExpressions>
+                      </Group>
+                      <SortExpressions>
+                        <SortExpression>
+                          <Value>=Fields!type.Value</Value>
+                        </SortExpression>
+                      </SortExpressions>
+                      <TablixMembers>
+                        <TablixMember>
+                          <TablixHeader>
+                            <Size>2.36458in</Size>
+                            <CellContents>
+                              <Textbox Name="type">
+                                <CanGrow>true</CanGrow>
+                                <KeepTogether>true</KeepTogether>
+                                <Paragraphs>
+                                  <Paragraph>
+                                    <TextRuns>
+                                      <TextRun>
+                                        <Value>=replace(Fields!type.Value,"RING_BUFFER_","")</Value>
+                                        <Style>
+                                          <FontSize>8pt</FontSize>
+                                        </Style>
+                                      </TextRun>
+                                    </TextRuns>
+                                    <Style>
+                                      <TextAlign>Center</TextAlign>
+                                    </Style>
+                                  </Paragraph>
+                                </Paragraphs>
+                                <rd:DefaultName>type</rd:DefaultName>
+                                <Style>
+                                  <Border>
+                                    <Color>LightGrey</Color>
+                                    <Style>Solid</Style>
+                                  </Border>
+                                  <TopBorder>
+                                    <Style>None</Style>
+                                  </TopBorder>
+                                  <LeftBorder>
+                                    <Style>None</Style>
+                                  </LeftBorder>
+                                  <RightBorder>
+                                    <Style>None</Style>
+                                  </RightBorder>
+                                  <BackgroundColor>White</BackgroundColor>
+                                  <PaddingLeft>2pt</PaddingLeft>
+                                  <PaddingRight>2pt</PaddingRight>
+                                  <PaddingTop>2pt</PaddingTop>
+                                  <PaddingBottom>2pt</PaddingBottom>
+                                </Style>
+                              </Textbox>
+                            </CellContents>
+                          </TablixHeader>
+                          <TablixMembers>
+                            <TablixMember>
+                              <Group Name="rec">
+                                <GroupExpressions>
+                                  <GroupExpression>=Fields!rec.Value</GroupExpression>
+                                </GroupExpressions>
+                              </Group>
+                              <SortExpressions>
+                                <SortExpression>
+                                  <Value>=Fields!rec.Value</Value>
+                                </SortExpression>
+                              </SortExpressions>
+                              <TablixHeader>
+                                <Size>0.70833in</Size>
+                                <CellContents>
+                                  <Textbox Name="rec">
+                                    <CanGrow>true</CanGrow>
+                                    <KeepTogether>true</KeepTogether>
+                                    <Paragraphs>
+                                      <Paragraph>
+                                        <TextRuns>
+                                          <TextRun>
+                                            <Value>=Fields!rec.Value</Value>
+                                            <Style>
+                                              <FontSize>8pt</FontSize>
+                                            </Style>
+                                          </TextRun>
+                                        </TextRuns>
+                                        <Style>
+                                          <TextAlign>Center</TextAlign>
+                                        </Style>
+                                      </Paragraph>
+                                    </Paragraphs>
+                                    <rd:DefaultName>rec</rd:DefaultName>
+                                    <Style>
+                                      <Border>
+                                        <Color>LightGrey</Color>
+                                        <Style>Solid</Style>
+                                      </Border>
+                                      <TopBorder>
+                                        <Style>None</Style>
+                                      </TopBorder>
+                                      <LeftBorder>
+                                        <Style>None</Style>
+                                      </LeftBorder>
+                                      <RightBorder>
+                                        <Style>None</Style>
+                                      </RightBorder>
+                                      <BackgroundColor>White</BackgroundColor>
+                                      <PaddingLeft>2pt</PaddingLeft>
+                                      <PaddingRight>2pt</PaddingRight>
+                                      <PaddingTop>2pt</PaddingTop>
+                                      <PaddingBottom>2pt</PaddingBottom>
+                                    </Style>
+                                  </Textbox>
+                                </CellContents>
+                              </TablixHeader>
+                            </TablixMember>
+                          </TablixMembers>
+                        </TablixMember>
+                      </TablixMembers>
+                    </TablixMember>
+                  </TablixMembers>
+                </TablixMember>
+              </TablixMembers>
+            </TablixRowHierarchy>
+            <FixedColumnHeaders>true</FixedColumnHeaders>
+            <FixedRowHeaders>true</FixedRowHeaders>
+            <KeepTogether>true</KeepTogether>
+            <DataSetName>dsEventsDetails</DataSetName>
+            <Top>4.64458in</Top>
+            <Left>0.09251in</Left>
+            <Height>0.44792in</Height>
+            <Width>5.57291in</Width>
+            <ZIndex>4</ZIndex>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Tablix>
         </ReportItems>
-        <Height>7.89583in</Height>
+        <Height>7.99875in</Height>
         <Style />
       </Body>
-      <Width>13.69792in</Width>
+      <Width>19.67709in</Width>
       <Page>
         <PageHeader>
           <Height>0.77083in</Height>
@@ -604,10 +1761,41 @@ order by 1 desc </CommandText>
       </Page>
     </ReportSection>
   </ReportSections>
+  <ReportParameters>
+    <ReportParameter Name="parDate">
+      <DataType>DateTime</DataType>
+      <Nullable>true</Nullable>
+      <DefaultValue>
+        <Values>
+          <Value>=today()</Value>
+        </Values>
+      </DefaultValue>
+      <Prompt>Date</Prompt>
+      <Hidden>true</Hidden>
+    </ReportParameter>
+    <ReportParameter Name="parEvent">
+      <DataType>String</DataType>
+      <Nullable>true</Nullable>
+      <Prompt>chosen Event type</Prompt>
+      <Hidden>true</Hidden>
+    </ReportParameter>
+  </ReportParameters>
   <ReportParametersLayout>
     <GridLayoutDefinition>
       <NumberOfColumns>4</NumberOfColumns>
       <NumberOfRows>2</NumberOfRows>
+      <CellDefinitions>
+        <CellDefinition>
+          <ColumnIndex>0</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>parDate</ParameterName>
+        </CellDefinition>
+        <CellDefinition>
+          <ColumnIndex>1</ColumnIndex>
+          <RowIndex>0</RowIndex>
+          <ParameterName>parEvent</ParameterName>
+        </CellDefinition>
+      </CellDefinitions>
     </GridLayoutDefinition>
   </ReportParametersLayout>
   <rd:ReportUnitType>Inch</rd:ReportUnitType>

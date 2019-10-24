@@ -502,6 +502,7 @@ option (recompile)</CommandText>
                         <Border>
                           <Color>=iif(InStr(Fields!type.Value,"failed")&gt;0,"Red","Automatic")</Color>
                         </Border>
+                        <Color>=iif(InStr(Fields!type.Value,"failed")&gt;0,"Salmon","Automatic")</Color>
                       </Style>
                       <ChartMarker>
                         <Style />

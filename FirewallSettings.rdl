@@ -131,6 +131,9 @@ exec (@cmd)</CommandText>
                           <CellContents>
                             <Textbox Name="Textbox4">
                               <CanGrow>true</CanGrow>
+                              <UserSort>
+                                <SortExpression>=Fields!name.Value</SortExpression>
+                              </UserSort>
                               <KeepTogether>true</KeepTogether>
                               <Paragraphs>
                                 <Paragraph>
@@ -169,12 +172,16 @@ exec (@cmd)</CommandText>
                                 <PaddingBottom>2pt</PaddingBottom>
                               </Style>
                             </Textbox>
+                            <rd:Selected>true</rd:Selected>
                           </CellContents>
                         </TablixCell>
                         <TablixCell>
                           <CellContents>
                             <Textbox Name="Textbox7">
                               <CanGrow>true</CanGrow>
+                              <UserSort>
+                                <SortExpression>=Fields!start_ip_address.Value</SortExpression>
+                              </UserSort>
                               <KeepTogether>true</KeepTogether>
                               <Paragraphs>
                                 <Paragraph>
@@ -219,6 +226,9 @@ exec (@cmd)</CommandText>
                           <CellContents>
                             <Textbox Name="Textbox9">
                               <CanGrow>true</CanGrow>
+                              <UserSort>
+                                <SortExpression>=Fields!end_ip_address.Value</SortExpression>
+                              </UserSort>
                               <KeepTogether>true</KeepTogether>
                               <Paragraphs>
                                 <Paragraph>
@@ -263,6 +273,20 @@ exec (@cmd)</CommandText>
                           <CellContents>
                             <Textbox Name="Textbox2">
                               <CanGrow>true</CanGrow>
+                              <UserSort>
+                                <SortExpression>=
+	(Split(Fields!end_ip_address.Value.ToString(),".")(3)
+	+Split(Fields!end_ip_address.Value.ToString(),".")(2)*256
+	+Split(Fields!end_ip_address.Value.ToString(),".")(1)*65536
+	+Split(Fields!end_ip_address.Value.ToString(),".")(0)*16777216
+	)
+-	(Split(Fields!start_ip_address.Value.ToString(),".")(3)
+	+Split(Fields!start_ip_address.Value.ToString(),".")(2)*256
+	+Split(Fields!start_ip_address.Value.ToString(),".")(1)*65536
+	+Split(Fields!start_ip_address.Value.ToString(),".")(0)*16777216
+	)
++1</SortExpression>
+                              </UserSort>
                               <KeepTogether>true</KeepTogether>
                               <Paragraphs>
                                 <Paragraph>
@@ -307,6 +331,9 @@ exec (@cmd)</CommandText>
                           <CellContents>
                             <Textbox Name="Textbox12">
                               <CanGrow>true</CanGrow>
+                              <UserSort>
+                                <SortExpression>=Fields!create_date.Value</SortExpression>
+                              </UserSort>
                               <KeepTogether>true</KeepTogether>
                               <Paragraphs>
                                 <Paragraph>
@@ -351,6 +378,9 @@ exec (@cmd)</CommandText>
                           <CellContents>
                             <Textbox Name="Textbox14">
                               <CanGrow>true</CanGrow>
+                              <UserSort>
+                                <SortExpression>=Fields!modify_date.Value</SortExpression>
+                              </UserSort>
                               <KeepTogether>true</KeepTogether>
                               <Paragraphs>
                                 <Paragraph>

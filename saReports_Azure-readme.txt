@@ -1,3 +1,19 @@
+[24-10-2019]
+* RingBuffer_Overview : continue building the report
+* AzureDB_main :  minor formatting enhancements
+* QueryStore_Queries : minor formatting enhancements
+
+[23-10-2019]
+* RingBuffer_Overview : continue building the report
+
+[22-10-2019]
+* DBEvents : minor formatting enhancements
+* Azure_Master : enhanced source query for "Connectivity Issues" and "Other events" columns
+* RingBuffer_Overview : continue building the report
+
+[15-10-2019]
+* AzureDB_main : minor formatting enhancements
+
 [10-10-2019]
 * RingBuffer_Overview :  new report created to analyze content of sys.dm_os_ring_buffers 
 * AzureDB_main : added link to RingBuffer_Overview report

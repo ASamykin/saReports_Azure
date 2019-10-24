@@ -145,15 +145,28 @@ option (recompile)</CommandText>
     <DataSet Name="dsConnections">
       <Query>
         <DataSourceName>DataSource1</DataSourceName>
-        <CommandText>select 
-	database_name [db]
-	,sum(total_failure_count) [FailAll]
-	,sum(connection_failure_count) [FailConn]
-	,sum(terminated_connection_count) [TermConn]
-	,sum(throttled_connection_count) [ThrotConn]
-from sys.database_connection_stats 
-where end_time&gt;=convert(date,getdate())
-group by database_name 
+        <CommandText>;with data as (
+select 
+	 cs.database_name [db]
+	,sum(cs.success_count) [success]
+	,sum(cs.total_failure_count) [total_failure_count]
+	,sum(cs.connection_failure_count) [connection_failure_count]
+	,sum(cs.terminated_connection_count) [terminated_connection_count]
+	,sum(cs.throttled_connection_count) [throttled_connection_count]
+from  sys.database_connection_stats cs
+where cs.end_time&gt;=convert(date,getdate())
+group by cs.database_name
+)
+
+select 
+	isnull(cs2.db,d.name) [db]
+	,isnull(cs2.success,0) [Success]
+	,isnull(cs2.total_failure_count,0) [FailAll]
+	,isnull(cs2.connection_failure_count,0) [FailConn]
+	,isnull(cs2.terminated_connection_count,0) [TermConn]
+	,isnull(cs2.throttled_connection_count,0) [ThrotConn]
+from sys.databases d
+left join data cs2 on cs2.db=d.name
 option (recompile)</CommandText>
       </Query>
       <Fields>
@@ -185,6 +198,10 @@ option (recompile)</CommandText>
 +" - terminated: "+cstr(Fields!TermConn.Value)
 +chr(10)
 +" - throlttled: "+cstr(Fields!ThrotConn.Value)</Value>
+        </Field>
+        <Field Name="Success">
+          <DataField>Success</DataField>
+          <rd:UserDefined>true</rd:UserDefined>
         </Field>
       </Fields>
     </DataSet>
@@ -247,7 +264,9 @@ from sys.database_service_objectives
 select
 	database_name
 	,event_type
-	,count(1) [n]
+--	,count(1) [n]
+	,sum(event_count) [n]
+
 from sys.event_log 
 where 
 end_time&gt;=convert(date,getdate())
@@ -2601,7 +2620,6 @@ and database_id&gt;4</CommandText>
                               <PaddingBottom>2pt</PaddingBottom>
                             </Style>
                           </Textbox>
-                          <rd:Selected>true</rd:Selected>
                         </CellContents>
                       </TablixHeader>
                       <TablixMembers>
@@ -2990,6 +3008,7 @@ and database_id&gt;4</CommandText>
                                                           <PaddingBottom>2pt</PaddingBottom>
                                                         </Style>
                                                       </Textbox>
+                                                      <rd:Selected>true</rd:Selected>
                                                     </CellContents>
                                                   </TablixHeader>
                                                   <TablixMembers>
